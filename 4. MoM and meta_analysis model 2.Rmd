@@ -1,0 +1,577 @@
+---
+title: "'The Naked Emperor'- thesis syntax 4: Analysis Model 2 - SAOM MoM and meta-analysis"
+subtitle: "Lisanne van Veen"
+output: pdf_document
+---
+This script runs the second model (structural effects + gender effects+ intimidation mechanism) in R for Method of Moments for each class, followed by meta-analysis of the results.
+
+Algorithmic parameters are adapted to each classroom for reaching convergence.
+After a first round, effects with high standard errors are set to fixed values for more reliable estimates for other model effects.
+Goodness of Fit is assessed for indegrees, outdegrees, triadic closure and geodesic distribution.
+
+Beside the model specification and the adaptation of algorithmic parameters, the code is similar to thesis syntax 3: Analysis model 1.
+
+## preliminaries
+
+```{r}
+knitr::opts_chunk$set(eval=F) #prevent evaluation while knitting pdf to show syntax
+```
+
+```{r, message = F}
+library(RSiena)
+library(tidyverse)
+library(kableExtra)
+```
+
+## Functions
+```{r}
+makeData <- function(i){
+  load(paste0('netDynamics',i,'.Rdata'))
+  dataset <- netDynamics
+  effects <- getEffects(dataset)
+  
+  #structural effects
+  effects <- includeEffects(effects, transTrip)
+  effects <- includeEffects(effects, inPopSqrt, outActSqrt, outPopSqrt)
+
+  # gender effects
+  effects <- includeEffects(effects, name = "emperors", altX, egoX, sameX, interaction1= "Gender")
+  
+  # INTIMIDATION MECHANISM
+  # H1a: relational aggression and perceived antisocial behavior precedes NE nomination
+  effects <- includeEffects(effects, name = "emperors",X, interaction1="relational") # main effect of     relational aggression
+  effects <- includeEffects(effects, name = "emperors",X, interaction1="antisocial") # main effect of   perceived antisocial behavior
+
+  # H1b: having more friends, and being perceived ass aggressive/antisocial lead to more NE nominations
+  effects <- includeEffects(effects, name = "emperors", altX,egoX,simX,interaction1="nfriends") 
+  effects <- includeInteraction(effects, name = "emperors",altX,X, interaction1 = c("nfriends","relational")) # interaction for more friends and relational aggression
+  effects <- includeInteraction(effects, name = "emperors",altX,X, interaction1 = c("nfriends","antisocial")) # interaction  for more friend antisocial behavior
+
+  # H1c: perceived social attributes moderate the relation between relational aggression and NE nomination
+  effects <- includeEffects(effects, name = "emperors",X, interaction1="social") # main effect of perceived social behavior
+  effects <- includeInteraction(effects, name = "emperors",X,X, interaction1=c("relational", "social")) # interaction effect of relational aggression and prosocial beh.
+  effects <- includeInteraction(effects, name = "emperors", X, X, interaction1 = c("antisocial", "social")) # interaction effect of anti-social and prosocial beh.
+
+  # algorithms
+  algo0 <- sienaAlgorithmCreate(projname = paste('model2', i, sep=""), n3=5000, dolby = T, seed=567)
+
+  p <- length(effects$effectName)
+  n2s <- ((2.52)*(p+7))*2
+  n2s <- round(n2s)
+  algo1 <- sienaAlgorithmCreate(projname = paste('model2', i, sep=""),
+                                nsub=1, n2start = n2s, n3=5000, dolby = T,seed=5678)
+  
+  # output is a list including the data, the effects, and two algorithms
+  list(Data=dataset, Eff=effects , algo0=algo0, algo1=algo1)
+}
+```
+
+```{r}
+siena07ToConvergence <- function(alg0, alg1, dat, eff, ans0=NULL, ...){
+  numr <- 0 # count number of runs
+  ans <- siena07(x = alg0, data=dat, effects=eff, prevAns=ans0,returnDeps= T, ...) # first run
+  
+  repeat { # code will be repeated until certain conditions are satisfied
+    
+    save(ans, file=paste("ans",numr,".RData",sep="")) # save first run results as R object 
+    numr <- numr+1 # count number of repeated runs
+    tm <- ans$tconv.max # maximum convergence indicator
+    cat(numr, tm,"\n") # report progress
+    
+    # Stop if:
+    if (tm < 0.20) {break} # run is successful
+    if (tm > 10) {break}   # there is no hope for good estimates
+    if (numr > 10) {break} # it takes too many runs for convergence
+    
+    # Continue if
+    if (tm > 0.5){ # max convergence is above 0.5
+      ans <- siena07(alg0, data=dat, effects=eff, prevAns=ans, returnDeps= T,...) # first algorithmic options
+    } else { # 0.2 < max conv < 0.5
+      ans <- siena07(alg1, data=dat, effects=eff, prevAns=ans, returnDeps= T,...) # second algorithmic options
+    }
+  }
+  if (tm > 0.25) # when stopped, and not converged:
+  {
+    cat(    "Warning: convergence inadequate.\n") # print warning
+  }
+  ans # final siena07 results
+}
+```
+
+```{r}
+analyseData <- function(i){
+  cat(' class ',i,'* ') # show progress, which classroom
+  sink('temp.txt') # unclutter screen
+  mod <- makeData(i) # list with Sienadata, effects, 2 algorithms
+  
+  sink() # unclutter screen
+  ModEstimates <- siena07ToConvergence(mod$algo0, mod$algo1,
+                                      dat = mod$Data, eff = mod$Eff)
+ 
+   # add a group number to the object:
+  ModEstimates$groupNumber <- i
+  ModEstimates # results
+}
+```
+
+## SAOM first round
+```{r}
+results2_1300 <- analyseData(1300) # converged
+results2_1500 <- analyseData(1500) # converged
+# only 2 classes converged
+```
+
+## SAOM - 2nd try
+```{r}
+# change makeData function
+makeData <- function(i){ # change: firstg = 0.02
+  load(paste0('netDynamics',i,'.Rdata'))
+  dataset <- netDynamics
+  effects <- getEffects(dataset)
+  effects <- includeEffects(effects, transTrip)
+  effects <- includeEffects(effects, inPopSqrt, outActSqrt, outPopSqrt)
+  effects <- includeEffects(effects, name = "emperors", altX, egoX, sameX, interaction1= "Gender")
+  effects <- includeEffects(effects, name = "emperors",X, interaction1="relational") 
+  effects <- includeEffects(effects, name = "emperors",X, interaction1="antisocial")
+  effects <- includeEffects(effects, name = "emperors", altX,egoX,simX,interaction1="nfriends") 
+  effects <- includeInteraction(effects, name = "emperors",altX,X, interaction1 = c("nfriends","relational")) 
+  effects <- includeInteraction(effects, name = "emperors",altX,X, interaction1 = c("nfriends","antisocial")) 
+  effects <- includeEffects(effects, name = "emperors",X, interaction1="social")
+  effects <- includeInteraction(effects, name = "emperors",X,X, interaction1=c("relational", "social"))
+  effects <- includeInteraction(effects, name = "emperors", X, X, interaction1 = c("antisocial", "social"))
+  
+  algo0 <- sienaAlgorithmCreate(projname = paste('model2', i, sep=""), n3=5000, dolby = T, seed=567, firstg = 0.02)
+  p <- length(effects$effectName)
+  n2s <- ((2.52)*(p+7))*2
+  n2s <- round(n2s)
+  algo1 <- sienaAlgorithmCreate(projname = paste('model2', i, sep=""),
+                                nsub=1, n2start = n2s, n3=5000, dolby = T,seed=5678, firstg = 0.02 )
+  list(Data=dataset, Eff=effects , algo0=algo0, algo1=algo1)
+}
+```
+
+```{r}
+results2_3100 <- analyseData(3100) #converged
+results2_6200 <- analyseData(6200) #converged
+```
+
+```{r}
+makeData <- function(i){ # change: cond = F
+  load(paste0('netDynamics',i,'.Rdata'))
+  dataset <- netDynamics
+  effects <- getEffects(dataset)
+  effects <- includeEffects(effects, transTrip)
+  effects <- includeEffects(effects, inPopSqrt, outActSqrt, outPopSqrt)
+  effects <- includeEffects(effects, name = "emperors", altX, egoX, sameX, interaction1= "Gender")
+  effects <- includeEffects(effects, name = "emperors",X, interaction1="relational")
+  effects <- includeEffects(effects, name = "emperors",X, interaction1="antisocial")
+  effects <- includeEffects(effects, name = "emperors", altX,egoX,simX,interaction1="nfriends") 
+  effects <- includeInteraction(effects, name = "emperors",altX,X, interaction1 = c("nfriends","relational"))
+  effects <- includeInteraction(effects, name = "emperors",altX,X, interaction1 = c("nfriends","antisocial"))
+  effects <- includeEffects(effects, name = "emperors",X, interaction1="social")
+  effects <- includeInteraction(effects, name = "emperors",X,X, interaction1=c("relational", "social"))
+  effects <- includeInteraction(effects, name = "emperors", X, X, interaction1 = c("antisocial", "social"))
+  
+  algo0 <- sienaAlgorithmCreate(projname = paste('model2', i, sep=""), n3=5000, dolby = T, seed=567, cond = F)
+  p <- length(effects$effectName)
+  n2s <- ((2.52)*(p+7))*2
+  n2s <- round(n2s)
+  algo1 <- sienaAlgorithmCreate(projname = paste('model2', i, sep=""),
+                                nsub=1, n2start = n2s, n3=5000, dolby = T,seed=5678 ,cond=F)
+  list(Data=dataset, Eff=effects , algo0=algo0, algo1=algo1)
+}
+```
+
+```{r}
+results2_3200 <- analyseData(3200) # converged
+```
+
+```{r}
+makeData <- function(i){ # change: dolby = F, firstg = 0.02, cond=F
+  load(paste0('netDynamics',i,'.Rdata'))
+  dataset <- netDynamics
+  effects <- getEffects(dataset)
+  effects <- includeEffects(effects, transTrip)
+  effects <- includeEffects(effects, inPopSqrt, outActSqrt, outPopSqrt)
+  effects <- includeEffects(effects, name = "emperors", altX, egoX, sameX, interaction1= "Gender")
+  effects <- includeEffects(effects, name = "emperors",X, interaction1="relational")
+  effects <- includeEffects(effects, name = "emperors",X, interaction1="antisocial")
+  effects <- includeEffects(effects, name = "emperors", altX,egoX,simX,interaction1="nfriends") 
+  effects <- includeInteraction(effects, name = "emperors",altX,X, interaction1 = c("nfriends","relational")) 
+  effects <- includeInteraction(effects, name = "emperors",altX,X, interaction1 = c("nfriends","antisocial"))
+  effects <- includeEffects(effects, name = "emperors",X, interaction1="social")
+  effects <- includeInteraction(effects, name = "emperors",X,X, interaction1=c("relational", "social"))
+  effects <- includeInteraction(effects, name = "emperors", X, X, interaction1 = c("antisocial", "social"))
+  
+  algo0 <- sienaAlgorithmCreate(projname = paste('model2', i, sep=""), n3=5000, dolby = F, seed=567,firstg = 0.02, cond = F)
+  p <- length(effects$effectName)
+  n2s <- ((2.52)*(p+7))*2
+  n2s <- round(n2s)
+  algo1 <- sienaAlgorithmCreate(projname = paste('model2', i, sep=""),
+                                nsub=1, n2start = n2s, n3=5000, dolby = F,seed=5678,firstg = 0.02, cond = F)
+  list(Data=dataset, Eff=effects , algo0=algo0, algo1=algo1)
+}
+```
+
+```{r}
+results2_3400 <- analyseData(3400) # converged
+```
+
+```{r}
+makeData <- function(i){ # change: dolby = F
+  load(paste0('netDynamics',i,'.Rdata'))
+  dataset <- netDynamics
+  effects <- getEffects(dataset)
+  effects <- includeEffects(effects, transTrip)
+  effects <- includeEffects(effects, inPopSqrt, outActSqrt, outPopSqrt)
+  effects <- includeEffects(effects, name = "emperors", altX, egoX, sameX, interaction1= "Gender")
+  effects <- includeEffects(effects, name = "emperors",X, interaction1="relational")
+  effects <- includeEffects(effects, name = "emperors",X, interaction1="antisocial")
+  effects <- includeEffects(effects, name = "emperors", altX,egoX,simX,interaction1="nfriends") 
+  effects <- includeInteraction(effects, name = "emperors",altX,X, interaction1 = c("nfriends","relational")) 
+  effects <- includeInteraction(effects, name = "emperors",altX,X, interaction1 = c("nfriends","antisocial"))
+  effects <- includeEffects(effects, name = "emperors",X, interaction1="social")
+  effects <- includeInteraction(effects, name = "emperors",X,X, interaction1=c("relational", "social"))
+  effects <- includeInteraction(effects, name = "emperors", X, X, interaction1 = c("antisocial", "social"))
+  algo0 <- sienaAlgorithmCreate(projname = paste('model2', i, sep=""), n3=5000, dolby = F, seed=565)
+  p <- length(effects$effectName)
+  n2s <- ((2.52)*(p+7))*2
+  n2s <- round(n2s)
+  algo1 <- sienaAlgorithmCreate(projname = paste('model2', i, sep=""),
+                                nsub=1, n2start = n2s, n3=5000, dolby = F,seed=564)
+  list(Data=dataset, Eff=effects , algo0=algo0, algo1=algo1)
+}
+```
+
+```{r}
+results2_3300 <- analyseData(3300)
+```
+
+```{r}
+# save results in a list
+resultslist2 <- list(results2_1300,results2_1500,results2_3100,results2_3200,results2_3300,results2_3400,results2_6200)
+save(resultslist2,file='resultslist2.Rdata')
+```
+
+
+```{r}
+# load results from syntax above
+#load('resultslist2.Rdata')
+```
+
+## check convergence
+```{r}
+# Check convergence:
+resultslist <- resultslist2
+hist(sapply(resultslist, function(x){x$tconv.max}), xlab='tconv.max', main='')
+max(sapply(resultslist, function(x){x$tconv.max})) 
+```
+## control standard errors
+
+```{r}
+groups <- sapply(resultslist, function(x){x$groupNumber}) # save group numbers
+sapply(resultslist, function(x){length(x$effects$effectName)}) # how many effects for each class?
+sapply(resultslist, function(x){x$effects$effectName}) # order?
+```
+
+```{r}
+# Extract parameter estimates and standard errors
+resultslistb <- resultslist
+resultslistb[[4]]$theta<- resultslistb[[4]]$theta[3:21]
+resultslistb[[4]]$se<- resultslistb[[4]]$se[3:21]
+resultslistb[[6]]$theta<- resultslistb[[6]]$theta[3:21]
+resultslistb[[6]]$se<- resultslistb[[6]]$se[3:21]
+parameters <-  sapply(resultslistb, function(x){x$theta})
+standers <- sapply(resultslistb, function(x){x$se})
+eff.names <-
+    resultslist[[1]]$effects[resultslist[[1]]$effects$include,'effectName']
+rownames(parameters) <- eff.names
+rownames(standers) <- eff.names
+colnames(parameters) <- sapply(resultslist, function(x){x$groupNumber})
+colnames(standers) <- sapply(resultslist, function(x){x$groupNumber})
+# print rounded to 2 decimals so that on a wide console everything can fit.
+#round(parameters,2)
+round(standers,2)
+```
+```{r}
+# check small variance? if yes no fixing needed
+(resultslist2[[1]]$sd)^2 <0.1# yes for recip 1300
+(resultslist2[[3]]$sd)^2 <0.1# yes for recip 3100
+(resultslist2[[5]]$sd)^2 <0.1# no
+(resultslist2[[7]]$sd)^2 <0.1# yes for recip 6200
+```
+
+## fix parameters
+
+```{r}
+# 1300: relational, relational*social
+makeData <- function(i){ # default
+  load(paste0('netDynamics',i,'.Rdata'))
+  dataset <- netDynamics
+  effects <- getEffects(dataset)
+  effects <- includeEffects(effects, transTrip)
+  effects <- includeEffects(effects, inPopSqrt, outActSqrt, outPopSqrt)
+  effects <- includeEffects(effects, name = "emperors", altX, egoX, sameX, interaction1= "Gender")
+  effects <- includeEffects(effects, name = "emperors",X, interaction1="relational", fix=T,test=T)
+  effects <- includeEffects(effects, name = "emperors",X, interaction1="antisocial")
+  effects <- includeEffects(effects, name = "emperors", altX,egoX,simX,interaction1="nfriends") 
+  effects <- includeInteraction(effects, name = "emperors",altX,X, interaction1 = c("nfriends","relational")) 
+  effects <- includeInteraction(effects, name = "emperors",altX,X, interaction1 = c("nfriends","antisocial"))
+  effects <- includeEffects(effects, name = "emperors",X, interaction1="social") 
+  effects <- includeInteraction(effects, name = "emperors",X,X, interaction1=c("relational", "social"), fix=T, test = T)
+  effects <- includeInteraction(effects, name = "emperors", X, X, interaction1 = c("antisocial", "social")) 
+  
+  algo0 <- sienaAlgorithmCreate(projname = paste('model2', i, sep=""), n3=5000, dolby = T, seed=567, firstg = 0.02)
+  p <- length(effects$effectName)
+  n2s <- ((2.52)*(p+7))*2
+  n2s <- round(n2s)
+  algo1 <- sienaAlgorithmCreate(projname = paste('model2', i, sep=""),
+                                nsub=1, n2start = n2s, n3=5000, dolby = T,seed=5678, firstg = 0.02 )
+  list(Data=dataset, Eff=effects , algo0=algo0, algo1=algo1)
+}
+
+results2_1300 <- analyseData(1300)
+```
+
+```{r}
+# 3300: density, gender, relational*social
+makeData <- function(i){ # change: dolby=F
+  load(paste0('netDynamics',i,'.Rdata'))
+  dataset <- netDynamics
+  effects <- getEffects(dataset)
+  effects <- includeEffects(effects, density, fix=T, test=T)
+  effects <- includeEffects(effects, transTrip)
+  effects <- includeEffects(effects, inPopSqrt, outActSqrt, outPopSqrt)
+  effects <- includeEffects(effects, name = "emperors", altX, egoX, sameX, interaction1= "Gender", fix=T, test=T)
+  effects <- includeEffects(effects, name = "emperors",X, interaction1="relational")
+  effects <- includeEffects(effects, name = "emperors",X, interaction1="antisocial")
+  effects <- includeEffects(effects, name = "emperors", altX,egoX,simX,interaction1="nfriends") 
+  effects <- includeInteraction(effects, name = "emperors",altX,X, interaction1 = c("nfriends","relational")) 
+  effects <- includeInteraction(effects, name = "emperors",altX,X, interaction1 = c("nfriends","antisocial"))
+  effects <- includeEffects(effects, name = "emperors",X, interaction1="social") 
+  effects <- includeInteraction(effects, name = "emperors",X,X, interaction1=c("relational", "social"), fix=T, test = T)
+  effects <- includeInteraction(effects, name = "emperors", X, X, interaction1 = c("antisocial", "social")) 
+  
+  algo0 <- sienaAlgorithmCreate(projname = paste('model2', i, sep=""), n3=5000, dolby = F, seed=567)
+  p <- length(effects$effectName)
+  n2s <- ((2.52)*(p+7))*2
+  n2s <- round(n2s)
+  algo1 <- sienaAlgorithmCreate(projname = paste('model2', i, sep=""),
+                                nsub=1, n2start = n2s, n3=5000, dolby = F,seed=5678)
+  list(Data=dataset, Eff=effects , algo0=algo0, algo1=algo1)
+}
+
+results2_3300 <- analyseData(3300)
+```
+
+```{r}
+# save new results
+(groups <- sapply(resultslist, function(x){x$groupNumber})) # models for which classrooms?
+resultslist2F <- resultslist2 # copy of previous SAOM
+resultslist2F[[1]] <- results2_1300 # replace
+resultslist2F[[5]] <- results2_3300 # replace
+save(resultslist2F,file='resultslist2F.Rdata')
+```
+
+```{r}
+# results of syntax above
+#load("~/Desktop/Master Computational Social Science/NETWORK PAPER/Naked Emperors/resultslist2F.Rdata")
+```
+
+## check convergence 2
+```{r}
+# Check convergence:
+resultslist <- resultslist2F
+hist(sapply(resultslist, function(x){x$tconv.max}), xlab='tconv.max', main='')
+max(sapply(resultslist, function(x){x$tconv.max})) 
+```
+## check SE 2
+
+```{r}
+# Extract parameter estimates and standard errors
+resultslistb <- resultslist
+resultslistb[[4]]$theta<- resultslistb[[4]]$theta[3:21]
+resultslistb[[4]]$se<- resultslistb[[4]]$se[3:21]
+resultslistb[[6]]$theta<- resultslistb[[6]]$theta[3:21]
+resultslistb[[6]]$se<- resultslistb[[6]]$se[3:21]
+parameters <-  sapply(resultslistb, function(x){x$theta})
+standers <- sapply(resultslistb, function(x){x$se})
+eff.names <-
+    resultslist[[1]]$effects[resultslist[[1]]$effects$include,'effectName']
+rownames(parameters) <- eff.names
+rownames(standers) <- eff.names
+colnames(parameters) <- sapply(resultslist, function(x){x$groupNumber})
+colnames(standers) <- sapply(resultslist, function(x){x$groupNumber})
+# print rounded to 2 decimals so that on a wide console everything can fit.
+#round(parameters,2)
+round(standers,2)
+```
+```{r}
+# check small variance?
+(resultslist2[[1]]$sd)^2 <0.1# yes for recip 1300
+(resultslist2[[3]]$sd)^2 <0.1# yes for recip 3100
+(resultslist2[[7]]$sd)^2 <0.1# yes for recip 6200
+```
+
+## Goodness of FIT
+```{r, message = FALSE}
+GeodesicDistribution <- function(i, data, sims, period, groupName,
+	varName, levls = c(1:5,Inf), cumulative= TRUE, ...) {
+    x <- networkExtraction(i, data, sims, period, groupName, varName)
+    require(sna)
+    a <- sna::geodist(symmetrize(x))$gdist
+    if (cumulative)
+    {
+        gdi <- sapply(levls, function(i){ sum(a <= i) })
+    }
+    else
+    {
+        gdi <- sapply(levls, function(i){ sum(a == i) })
+    }
+    names(gdi) <- as.character(levls)
+    return(gdi)
+}
+```  
+
+```{r}
+GOF <- list()
+GOFP <- list()
+for(i in 1:length(resultslist)){
+  
+print(i) # check progress
+  
+gof1.indegrees <- sienaGOF(resultslist[[i]],IndegreeDistribution,
+                           varName = "emperors",cumulative = FALSE)
+gof1.outdegrees <- sienaGOF(resultslist[[i]],OutdegreeDistribution,
+	                            varName = "emperors",cumulative = FALSE)
+gof1.triads <- sienaGOF(resultslist[[i]],TriadCensus,varName = "emperors")
+gof1.geodesic <- sienaGOF(resultslist[[i]],GeodesicDistribution,
+                           varName = "emperors",cumulative = FALSE)
+# save p-values
+P <- c(gof1.indegrees$Joint$p,
+       gof1.outdegrees$Joint$p,
+       gof1.triads$Joint$p,
+       gof1.geodesic$Joint$p)
+
+GOFP[[i]] <- P
+
+goflist <- list(gof1.indegrees, gof1.outdegrees, gof1.triads, gof1.geodesic)
+GOF[[i]] <- goflist
+}
+```
+
+```{r}
+save(GOFP,file='GOFP2F.Rdata')
+save(GOF,file='GOF2F.Rdata')
+```
+
+```{r}
+# GOF? p<0.05? 
+GOFP # fit of outdegrees not great for 1300 and 3100
+```
+
+## table the results
+```{r, include = F}
+results.table2 <- list()
+for(i in 1:length(resultslist)){
+
+parameter <- resultslist[[i]]$effects$effectName
+type <- resultslist[[i]]$effects$type
+estimate <- resultslist[[i]]$theta
+st.error <- sqrt(diag(resultslist[[i]]$covtheta))
+normal.variate <- estimate/st.error
+p.value.2sided <- 2*pnorm(abs(normal.variate),lower.tail = FALSE)
+
+results.table2[[i]] <- data.frame(parameter,
+	                  estimate = round(estimate,3),
+	                  st.error = round(st.error,3),
+	                  normal.variate = round(normal.variate,2),
+	                  p.value = round(p.value.2sided,4))
+}
+```
+
+```{r}
+save(results.table2, file='results.table2.Rdata')
+```
+
+# meta-analysis
+```{r}
+meta2 <-siena08(resultslist, projname= 'meta2', maxit = 200)
+save(meta2, file='meta2.Rdata')
+```
+
+```{r}
+load('meta2.Rdata')
+meta <- meta2
+```
+
+```{r}
+# SE RANDOM?
+plot(meta, which = 1:length(meta$theta),
+                         useBound=TRUE, layout = c(2,2))
+```
+
+```{r}
+# fishertest
+neff <- sum(resultslist[[1]]$effects$include)
+# Construct the names for the effects:
+efnames <- names(meta)[1:neff]
+
+# The first 7 letters are redundant and will be dropped:
+efnames <- substring(efnames, 8)
+
+Fishers <- t(sapply(1:neff,
+                    function(i){c(meta[[i]]$cjplus, meta[[i]]$cjminus,
+                                  meta[[i]]$cjplusp, meta[[i]]$cjminusp,
+                                  2*meta[[i]]$n1 )}))
+rownames(Fishers) <- efnames
+colnames(Fishers) <- c('Fplus', 'Fminus', 'pplus', 'pminus', 'df')
+df_Fishers<- as_tibble(round(Fishers,3),rownames = NA)
+
+df_Fishersint <- df_Fishers %>% mutate('pos_sig'= ifelse(pplus <= 0.025, "yes","no"), 'neg_sig' = ifelse(pminus <= 0.025, "yes","no"))
+rownames(df_Fishersint) <- efnames
+kbl(df_Fishersint) %>% kable_styling()
+```
+
+```{r}
+parameters.08 <- t(sapply(1:neff, function(i){c(meta[[i]]$mu.ml,
+                                                meta[[i]]$mu.ml.se, meta[[i]]$mu.confint,
+                                                meta[[i]]$sigma.ml, meta[[i]]$sigma.confint,
+                                                meta[[i]]$n1)}))
+
+colnames(parameters.08) <- c('mu-hat', 'mu-se',
+                             'mu-min', 'mu-plus', 'alpha_mu',
+                             'sigma-hat', 'sigma-min', 'sigma-plus', 'alpha_sigma', 'N')
+# These are: parameter estimate for population mean; s.e.;
+# confidence interval for population mean (left, right, significance level);
+# estimate for population standard deviation;
+# confidence interval for standard deviation (left, right, significance level);
+# number of groups on which this is based.
+```
+
+```{r}
+save(Fishers, file = 'Fishers2.Rdata')
+save(parameters.08, file = 'Meta.Par2.Rdata')
+```
+
+```{r}
+# Extract heterogeneity tests from siena08 output;
+# these are called Q in Snijders & Baerveldt (2003):
+hetero.08 <- t(sapply(1:neff, function(i){c(meta[[i]]$Qstat,
+                                            meta[[i]]$n1-1, meta[[i]]$pttilde)}))
+colnames(hetero.08) <- c('Q', 'df', 'pQ')
+# These are: Q statistic; degrees of freedom; p-value
+rownames(hetero.08) <- efnames
+round(hetero.08, 3)
+
+# Extract overall tests;
+Overalls.08 <- t(sapply(1:neff, function(i){c(meta[[i]]$Tsq,
+                                              meta[[i]]$n1-1, meta[[i]]$pTsq)}))
+colnames(Overalls.08) <- c('T^2', 'df', 'pT^2')
+
+# These are: Q statistic; degrees of freedom; p-value
+rownames(Overalls.08) <- efnames
+round(Overalls.08, 3)
+
+save(Overalls.08, file='overalls08.2.Rdata')
+```

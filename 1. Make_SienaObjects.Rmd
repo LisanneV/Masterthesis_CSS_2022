@@ -1,0 +1,486 @@
+---
+title: "'The Naked Emperor'- thesis syntax 1: Make Siena Objects & QAP"
+subtitle: "Lisanne van Veen"
+output: pdf_document
+---
+
+The script creates Siena objects for the classrooms containing the following variables:
+
+Dependent variable: Naked emperor network
+Dyadic covariates: relational aggression, perceived antisocial behavior, social behavior, gossip target, friends and antipathy
+Varying covariates: indegrees of friends (sociometric popularity)
+Constant covariate: Gender
+
+To do this yourself:
+Download the RECENS DATASET and change the path, so it leads to the folders that contain the network data (named "Wave1" till "Wave4").
+Further down, the path to the student data must then also be changed.
+
+This script also performs a QAP analysis for the networks of status discrepancy and the Naked emperor network. It also creates  list including all the relevant variables for the class, to be used for the descriptives.
+
+### preliminaries
+
+```{r}
+knitr::opts_chunk$set(eval=F) #prevent evaluation while knitting pdf to show syntax
+```
+
+```{r libraries}
+# load libraries
+library(tidyverse)
+library(dplyr)
+library(sna)
+library(igraph)
+library(haven)
+library(multinet)
+library(RSiena)
+```
+
+```{r define school and classroom}
+school <-1000         # change to relevant school number
+classroom <-1200      # change to relevant school id
+path <- "/Users/lisanne/Desktop/Master Computational Social Science/NETWORK PAPER/Naked Emperors/"
+```
+
+### functions
+
+```{r cleanNet function to quickly clean the network}
+cleanNet <- function(x){
+students <- x %>% select("X0") # 1st col from csv load contains student numbers
+NE <- x %>% select(-"X0") # remove this from df
+NE <- as.matrix(NE) # transform into matrix
+rownames(NE) <- colnames(NE)<- students[[1]] #give student numbers as row and colnames
+return(NE)
+}
+```
+
+```{r impute missings}
+# input is network of interest and earlier wave + vector with numbers of students absent during the survey
+missingImpute <- function(Source,Target,abs){
+    n1 <- Source # earlier wave
+    n2 <- Target # wave of interest
+    n2[rownames(n2) %in% abs & rownames(n2) %in% rownames(n1), colnames(n2) %in% colnames(n1)] <- n1[rownames(n1) %in% abs, colnames(n1) %in% colnames(n2)] # insert values of former wave in current wave, for absent students (nominations for those also present in the former network)
+    n2[is.na(n2)] <- 0 # if any NA left, replace with 0
+    diag(n2) <- 0 # diag = 0
+    return(n2)
+}
+```
+
+### load data
+
+```{r 1st wave status networks}
+# The data is loaded and directly cleaned and presented as defined by the cleanNet function
+# Wave 1
+seconddegree_1 <- cleanNet(read.csv(paste0(path,"Wave1/",school,"/", classroom,"/25/",classroom,"_25_1.csv")))
+firstdegree_1 <- cleanNet(read.csv(paste0(path,"Wave1/",school,"/", classroom,"/24/",classroom,"_24_2.csv")))
+emperor_1 <- cleanNet(read.csv(paste0(path,"Wave1/",school,"/", classroom,"/24/",classroom,"_24_13.csv")))
+```
+
+```{r 2nd wave status networks}
+# Wave 2
+seconddegree_2 <- cleanNet(read.csv(paste0(path,"Wave2/",school,"/", classroom,"/23/",classroom,"_23_1_2h.csv")))
+firstdegree_2 <- cleanNet(read.csv(paste0(path,"Wave2/",school,"/", classroom,"/22/",classroom,"_22_1_2h.csv")))
+emperor_2 <- cleanNet(read.csv(paste0(path,"Wave2/",school,"/", classroom,"/23/",classroom,"_23_4_2h.csv")))
+```
+
+```{r 3rd wave status networks}
+# Wave 3
+seconddegree_3 <- cleanNet(read.csv(paste0(path,"Wave3/",school,"/", classroom,"/22/",classroom,"_22_1_3h.csv")))
+firstdegree_3 <- cleanNet(read.csv(paste0(path,"Wave3/",school,"/", classroom,"/21/",classroom,"_21_1_3h.csv")))
+emperor_3 <- cleanNet(read.csv(paste0(path,"Wave3/",school,"/", classroom,"/22/",classroom,"_22_4_3h.csv")))
+```
+
+```{r 4rd wave status networks}
+# Wave 4
+seconddegree_4 <- cleanNet(read.csv(paste0(path,"Wave4/",school,"/", classroom,"/37/",classroom,"_37_1_4h.csv")))
+firstdegree_4 <- cleanNet(read.csv(paste0(path,"Wave4/",school,"/", classroom,"/27/",classroom,"_27_1_4h.csv")))
+emperor_4 <- cleanNet(read.csv(paste0(path,"Wave4/",school,"/", classroom,"/37/",classroom,"_37_4_4h.csv")))
+```
+
+```{r}
+# load affective data
+aff_1 <- cleanNet(read.csv(paste0(path,"Wave1/",school,"/", classroom,"/15/",classroom,"_15_1.csv")))
+aff_2 <- cleanNet(read.csv(paste0(path,"Wave2/",school,"/", classroom,"/11/",classroom,"_11_2h.csv")))
+aff_3 <- cleanNet(read.csv(paste0(path,"Wave3/",school,"/", classroom,"/19/",classroom,"_19_3h.csv")))
+aff_4 <- cleanNet(read.csv(paste0(path,"Wave4/",school,"/", classroom,"/20/",classroom,"_20_4h.csv")))
+```
+
+```{r}
+# Wave 1 (not used in analysis, however to have data for missing values)
+# RELATIONAL AGGRESSION
+overt_1 <- cleanNet(read.csv(paste0(path,"Wave1/",school,"/", classroom,"/33/",classroom,"_33_2.csv")))
+gossips_1 <- cleanNet(read.csv(paste0(path,"Wave1/",school,"/", classroom,"/33/",classroom,"_33_4.csv")))
+mocks_1 <- cleanNet(read.csv(paste0(path,"Wave1/",school,"/", classroom,"/33/",classroom,"_33_6.csv")))
+humiliate_1 <- cleanNet(read.csv(paste0(path,"Wave1/",school,"/", classroom,"/33/",classroom,"_33_8.csv")))
+
+# PERCEIVED ANTISOCIAL BEHAVIOR
+gossipy_1 <- cleanNet(read.csv(paste0(path,"Wave1/",school,"/", classroom,"/23/",classroom,"_23_4.csv")))
+fights_1 <- cleanNet(read.csv(paste0(path,"Wave1/",school,"/", classroom,"/23/",classroom,"_23_2.csv")))
+
+# PERCEIVED SOCIAL BEHAVIOR
+kind_1 <- cleanNet(read.csv(paste0(path,"Wave1/",school,"/", classroom,"/23/",classroom,"_23_5.csv")))
+protects_1 <- cleanNet(read.csv(paste0(path,"Wave1/",school,"/", classroom,"/24/",classroom,"_24_8.csv")))
+solvedispute_1 <- cleanNet(read.csv(paste0(path,"Wave1/",school,"/", classroom,"/24/",classroom,"_24_10.csv")))
+trust_1 <- cleanNet(read.csv(paste0(path,"Wave1/",school,"/", classroom,"/24/",classroom,"_24_9.csv")))
+helps_1 <- cleanNet(read.csv(paste0(path,"Wave1/",school,"/", classroom,"/24/",classroom,"_24_12.csv")))
+```
+
+```{r 2nd wave bullying networks}
+# Wave 2
+# Relational aggression
+overt_2 <- cleanNet(read.csv(paste0(path,"Wave2/",school,"/", classroom,"/32/",classroom,"_32_2_2h.csv")))
+gossips_2 <- cleanNet(read.csv(paste0(path,"Wave2/",school,"/", classroom,"/32/",classroom,"_32_4_2h.csv")))
+mocks_2 <- cleanNet(read.csv(paste0(path,"Wave2/",school,"/", classroom,"/32/",classroom,"_32_6_2h.csv")))
+humiliate_2 <- cleanNet(read.csv(paste0(path,"Wave2/",school,"/", classroom,"/32/",classroom,"_32_8_2h.csv")))
+
+# Antisocial behavior
+gossipy_2 <- cleanNet(read.csv(paste0(path,"Wave2/",school,"/", classroom,"/21/",classroom,"_21_4_2h.csv")))
+fights_2 <- cleanNet(read.csv(paste0(path,"Wave2/",school,"/", classroom,"/21/",classroom,"_21_2_2h.csv")))
+
+# social behavior
+kind_2 <- cleanNet(read.csv(paste0(path,"Wave2/",school,"/", classroom,"/21/",classroom,"_21_5_2h.csv")))
+protects_2 <- cleanNet(read.csv(paste0(path,"Wave2/",school,"/", classroom,"/22/",classroom,"_22_8_2h.csv")))
+solvedispute_2 <- cleanNet(read.csv(paste0(path,"Wave2/",school,"/", classroom,"/22/",classroom,"_22_10_2h.csv")))
+trust_2 <- cleanNet(read.csv(paste0(path,"Wave2/",school,"/", classroom,"/22/",classroom,"_22_9_2h.csv")))
+helps_2 <- cleanNet(read.csv(paste0(path,"Wave2/",school,"/", classroom,"/22/",classroom,"_22_12_2h.csv")))
+```
+
+```{r 3rd wave bullying networks}
+# Wave 3
+# Relational aggression
+overt_3 <- cleanNet(read.csv(paste0(path,"Wave3/",school,"/", classroom,"/39/",classroom,"_39_2_3h.csv")))
+gossips_3 <- cleanNet(read.csv(paste0(path,"Wave3/",school,"/", classroom,"/39/",classroom,"_39_4_3h.csv")))
+mocks_3 <- cleanNet(read.csv(paste0(path,"Wave3/",school,"/", classroom,"/39/",classroom,"_39_6_3h.csv")))
+humiliate_3 <- cleanNet(read.csv(paste0(path,"Wave3/",school,"/", classroom,"/39/",classroom,"_39_8_3h.csv")))
+
+# antisocial behavior
+gossipy_3 <- cleanNet(read.csv(paste0(path,"Wave3/",school,"/", classroom,"/20/",classroom,"_20_4_3h.csv")))
+fights_3 <- cleanNet(read.csv(paste0(path,"Wave3/",school,"/", classroom,"/20/",classroom,"_20_2_3h.csv")))
+
+# social behavior
+kind_3 <- cleanNet(read.csv(paste0(path,"Wave3/",school,"/", classroom,"/20/",classroom,"_20_5_3h.csv")))
+protects_3 <- cleanNet(read.csv(paste0(path,"Wave3/",school,"/", classroom,"/21/",classroom,"_21_6_3h.csv")))
+solvedispute_3 <- cleanNet(read.csv(paste0(path,"Wave3/",school,"/", classroom,"/21/",classroom,"_21_8_3h.csv")))
+trust_3 <- cleanNet(read.csv(paste0(path,"Wave3/",school,"/", classroom,"/21/",classroom,"_21_7_3h.csv")))
+helps_3 <- cleanNet(read.csv(paste0(path,"Wave3/",school,"/", classroom,"/21/",classroom,"_21_10_3h.csv")))
+```
+
+```{r 4th wave bullying networks}
+# Wave 4
+# Relational aggression
+overt_4 <- cleanNet(read.csv(paste0(path,"Wave4/",school,"/", classroom,"/38/",classroom,"_38_2_4h.csv")))
+gossips_4 <- cleanNet(read.csv(paste0(path,"Wave4/",school,"/", classroom,"/38/",classroom,"_38_4_4h.csv")))
+mocks_4 <- cleanNet(read.csv(paste0(path,"Wave4/",school,"/", classroom,"/38/",classroom,"_38_6_4h.csv")))
+humiliate_4 <- cleanNet(read.csv(paste0(path,"Wave4/",school,"/", classroom,"/38/",classroom,"_38_8_4h.csv")))
+
+# antisocial behavior
+gossipy_4 <- cleanNet(read.csv(paste0(path,"Wave4/",school,"/", classroom,"/26/",classroom,"_26_4_4h.csv")))
+fights_4 <- cleanNet(read.csv(paste0(path,"Wave4/",school,"/", classroom,"/26/",classroom,"_26_2_4h.csv")))
+
+# social behavior
+kind_4 <- cleanNet(read.csv(paste0(path,"Wave4/",school,"/", classroom,"/26/",classroom,"_26_5_4h.csv")))
+protects_4 <- cleanNet(read.csv(paste0(path,"Wave4/",school,"/", classroom,"/27/",classroom,"_27_6_4h.csv")))
+solvedispute_4 <- cleanNet(read.csv(paste0(path,"Wave4/",school,"/", classroom,"/27/",classroom,"_27_8_4h.csv")))
+trust_4 <- cleanNet(read.csv(paste0(path,"Wave4/",school,"/", classroom,"/27/",classroom,"_27_7_4h.csv")))
+helps_4 <- cleanNet(read.csv(paste0(path,"Wave4/",school,"/", classroom,"/27/",classroom,"_27_10_4h.csv")))
+```
+
+```{r}
+# Gossip about
+gossiptarget_1 <- cleanNet(read.csv(paste0(path,"Wave1/",school,"/", classroom,"/33/",classroom,"_33_3.csv")))
+gossiptarget_2 <- cleanNet(read.csv(paste0(path,"Wave2/",school,"/", classroom,"/32/",classroom,"_32_3_2h.csv")))
+gossiptarget_3 <- cleanNet(read.csv(paste0(path,"Wave3/",school,"/", classroom,"/39/",classroom,"_39_3_3h.csv")))
+gossiptarget_4 <- cleanNet(read.csv(paste0(path,"Wave4/",school,"/", classroom,"/38/",classroom,"_38_3_4h.csv")))
+```
+
+### network dichotomizing / merging
+
+```{r firstwave seconddegree network}
+seconddegree_1[seconddegree_1 %in% c(-1,-2)] <- 0
+seconddegree_1[seconddegree_1 %in% c(1,2)] <- 1
+```
+
+```{r, affective networks}
+friends_1 <- ifelse(aff_1 == 2, 1, 0)
+friends_2 <- ifelse(aff_2 == 2, 1, 0)
+friends_3 <- ifelse(aff_3 == 2, 1, 0)
+friends_4 <- ifelse(aff_4 == 2, 1, 0)
+
+dislike_1 <- ifelse(aff_1 == -2 | aff_1 == -1, 1, 0)
+dislike_2 <- ifelse(aff_2 == -2 | aff_2 == -1, 1, 0)
+dislike_3 <- ifelse(aff_3 == -2 | aff_3 == -1, 1, 0)
+dislike_4 <- ifelse(aff_4 == -2 | aff_4 == -1, 1, 0)
+```
+
+```{r}
+# merge networks to one without dichotomizing
+relational_1 <- gossips_1 + mocks_1 + humiliate_1 + overt_1
+antisocial_1 <- gossipy_1+fights_1
+social_1 <- kind_1 + protects_1 + solvedispute_1 + trust_1 + helps_1
+
+relational_2 <- gossips_2 + mocks_2 + humiliate_2 + overt_2
+antisocial_2 <- gossipy_2+fights_2
+social_2 <- kind_2 + protects_2 + solvedispute_2 + trust_2 + helps_2
+
+relational_3 <- gossips_3 + mocks_3 + humiliate_3 + overt_3
+antisocial_3 <- gossipy_3+fights_3
+social_3 <- kind_3 + protects_3 + solvedispute_3 + trust_3 + helps_3
+
+relational_4 <- gossips_4 + mocks_4 + humiliate_4 + overt_4
+antisocial_4 <- gossipy_4+fights_4
+social_4 <- kind_4 + protects_4 + solvedispute_4 + trust_4 + helps_4
+```
+
+### select student belonging to the class at last 3 waves
+
+```{r load student data in dataframe}
+student_data <- as_tibble(read_sav("/Users/lisanne/Desktop/Master Computational Social Science/NETWORK PAPER/OTKA_dataset/ENG - Data/OTKA_student_w1234.sav"))
+```
+
+```{r}
+# filter on student numbers that exist throughout the last 2 waves
+studdata <- student_data %>% filter(class_2 == classroom & class_3 == classroom & class_4 == classroom) 
+stud <- studdata$idcode
+```
+
+```{r select students present in all waves}
+seconddegree_1 <- seconddegree_1[rownames(seconddegree_1) %in% stud,colnames(seconddegree_1) %in% stud] 
+firstdegree_1 <- firstdegree_1[rownames(firstdegree_1) %in% stud,colnames(firstdegree_1) %in% stud]
+emperor_1 <- emperor_1[rownames(emperor_1) %in% stud,colnames(emperor_1) %in% stud]
+
+seconddegree_2 <- seconddegree_2[rownames(seconddegree_2) %in% stud,colnames(seconddegree_2) %in% stud] 
+firstdegree_2 <- firstdegree_2[rownames(firstdegree_2) %in% stud,colnames(firstdegree_2) %in% stud]
+emperor_2 <- emperor_2[rownames(emperor_2) %in% stud,colnames(emperor_2) %in% stud]
+
+seconddegree_3 <- seconddegree_3[rownames(seconddegree_3) %in% stud,colnames(seconddegree_3) %in% stud] 
+firstdegree_3 <- firstdegree_3[rownames(firstdegree_3) %in% stud,colnames(firstdegree_3) %in% stud]
+emperor_3 <- emperor_3[rownames(emperor_3) %in% stud,colnames(emperor_3) %in% stud]
+
+seconddegree_4 <- seconddegree_4[rownames(seconddegree_4) %in% stud,colnames(seconddegree_4) %in% stud] 
+firstdegree_4 <- firstdegree_4[rownames(firstdegree_4) %in% stud,colnames(firstdegree_4) %in% stud]
+emperor_4 <- emperor_4[rownames(emperor_4) %in% stud,colnames(emperor_4) %in% stud]
+```
+
+```{r}
+friends_1 <- friends_1[rownames(friends_1) %in% stud,colnames(friends_1) %in% stud]
+friends_2 <- friends_2[rownames(friends_2) %in% stud,colnames(friends_2) %in% stud]
+friends_3 <- friends_3[rownames(friends_3) %in% stud,colnames(friends_3) %in% stud]
+friends_4 <- friends_4[rownames(friends_4) %in% stud,colnames(friends_4) %in% stud]
+
+dislike_1 <- dislike_1[rownames(dislike_1) %in% stud,colnames(dislike_1) %in% stud]
+dislike_2 <- dislike_2[rownames(dislike_2) %in% stud,colnames(dislike_2) %in% stud]
+dislike_3 <- dislike_3[rownames(dislike_3) %in% stud,colnames(dislike_3) %in% stud]
+dislike_4 <- dislike_4[rownames(dislike_4) %in% stud,colnames(dislike_4) %in% stud]
+```
+
+```{r}
+relational_1 <- relational_1[rownames(relational_1) %in% stud,colnames(relational_1) %in% stud]
+relational_2 <- relational_2[rownames(relational_2) %in% stud,colnames(relational_2) %in% stud]
+relational_3 <- relational_3[rownames(relational_3) %in% stud,colnames(relational_3) %in% stud]
+relational_4 <- relational_4[rownames(relational_4) %in% stud,colnames(relational_4) %in% stud]
+
+antisocial_1 <- antisocial_1[rownames(antisocial_1) %in% stud,colnames(antisocial_1) %in% stud]
+antisocial_2 <- antisocial_2[rownames(antisocial_2) %in% stud,colnames(antisocial_2) %in% stud]
+antisocial_3 <- antisocial_3[rownames(antisocial_3) %in% stud,colnames(antisocial_3) %in% stud]
+antisocial_4 <- antisocial_4[rownames(antisocial_4) %in% stud,colnames(antisocial_4) %in% stud]
+
+social_1 <- social_1[rownames(social_1) %in% stud,colnames(social_1) %in% stud]
+social_2 <- social_2[rownames(social_2) %in% stud,colnames(social_2) %in% stud]
+social_3 <- social_3[rownames(social_3) %in% stud,colnames(social_3) %in% stud]
+social_4 <- social_4[rownames(social_4) %in% stud,colnames(social_4) %in% stud]
+```
+
+```{r}
+gossiptarget_1 <- gossiptarget_1[rownames(gossiptarget_1) %in% stud,colnames(gossiptarget_1) %in% stud] 
+gossiptarget_2 <- gossiptarget_2[rownames(gossiptarget_2) %in% stud,colnames(gossiptarget_2) %in% stud] 
+gossiptarget_3 <- gossiptarget_3[rownames(gossiptarget_3) %in% stud,colnames(gossiptarget_3) %in% stud] 
+gossiptarget_4 <- gossiptarget_4[rownames(gossiptarget_4) %in% stud,colnames(gossiptarget_4) %in% stud] 
+```
+
+# missings
+```{r}
+# which students were not present during the survey?
+abs.1 <- studdata %>% filter(participate1 == 0) %>% select(idcode)
+abs.2 <- studdata %>% filter(participate2 == 0) %>% select(idcode)
+abs.3 <- studdata %>% filter(participate3 == 0) %>% select(idcode)
+abs.4 <- studdata %>% filter(participate4 == 0) %>% select(idcode)
+```
+
+# imputation
+
+```{r}
+emperor_2 <- missingImpute(emperor_1, emperor_2, abs.2$idcode)
+emperor_3 <- missingImpute(emperor_2, emperor_3, abs.3$idcode)
+emperor_4 <- missingImpute(emperor_3, emperor_4, abs.4$idcode)
+```
+
+```{r}
+firstdegree_2 <- missingImpute(firstdegree_1, firstdegree_2, abs.2$idcode)
+firstdegree_3 <- missingImpute(firstdegree_2, firstdegree_3, abs.3$idcode)
+firstdegree_4 <- missingImpute(firstdegree_3, firstdegree_4, abs.4$idcode)
+```
+
+```{r}
+seconddegree_2 <- missingImpute(seconddegree_1, seconddegree_2, abs.2$idcode)
+seconddegree_3 <- missingImpute(seconddegree_2, seconddegree_3, abs.3$idcode)
+seconddegree_4 <- missingImpute(seconddegree_3, seconddegree_4, abs.4$idcode)
+```
+
+```{r}
+friends_2 <- missingImpute(friends_1, friends_2, abs.2$idcode)
+friends_3 <- missingImpute(friends_2, friends_3, abs.3$idcode)
+friends_4 <- missingImpute(friends_3, friends_4, abs.4$idcode)
+```
+
+```{r}
+dislike_2 <- missingImpute(dislike_1, dislike_2, abs.2$idcode)
+dislike_3 <- missingImpute(dislike_2, dislike_3, abs.3$idcode)
+dislike_4 <- missingImpute(dislike_3, dislike_4, abs.4$idcode)
+```
+
+```{r}
+relational_2 <- missingImpute(relational_1, relational_2, abs.2$idcode)
+relational_3 <- missingImpute(relational_2, relational_3, abs.3$idcode)
+relational_4 <- missingImpute(relational_3, relational_4, abs.4$idcode)
+
+antisocial_2 <- missingImpute(antisocial_1, antisocial_2, abs.2$idcode)
+antisocial_3 <- missingImpute(antisocial_2, antisocial_3, abs.3$idcode)
+antisocial_4 <- missingImpute(antisocial_3, antisocial_4, abs.4$idcode)
+
+social_2 <- missingImpute(social_1, social_2, abs.2$idcode)
+social_3 <- missingImpute(social_2, social_3, abs.3$idcode)
+social_4 <- missingImpute(social_3, social_4, abs.4$idcode)
+
+gossiptarget_2 <- missingImpute(gossiptarget_1, gossiptarget_2, abs.2$idcode)
+gossiptarget_3 <- missingImpute(gossiptarget_2, gossiptarget_3, abs.3$idcode)
+gossiptarget_4 <- missingImpute(gossiptarget_3, gossiptarget_4, abs.4$idcode)
+```
+
+# adjecency matrix (needed for variables that depend on indegrees)
+
+```{r}
+friends_2_adj <- graph.adjacency(friends_2, mode = "directed")
+friends_3_adj <- graph.adjacency(friends_3, mode = "directed")
+friends_4_adj <- graph.adjacency(friends_4, mode = "directed")
+```
+
+# make Siena objects
+
+```{r, message = F}
+# define number of actors
+numberActors <- nrow(emperor_2)
+```
+
+```{r}
+# DEFINE DEPENDENT NETWORK VARIABLES
+emperors <- sienaDependent(array(
+    c(emperor_2,emperor_3,emperor_4),
+    dim = c(numberActors,numberActors,3)),allowOnly = F) # remove restriction to use siena08 and multigroup analysis later
+```
+
+```{r}
+# PREDICTOR NETWORKS (time-varying dyadic relationships):
+relational <- varDyadCovar(array(c(relational_2,relational_3),
+	dim=c(numberActors,numberActors,2)))
+
+antisocial <- varDyadCovar(array(c(antisocial_2,antisocial_3),
+	dim=c(numberActors,numberActors,2)))
+
+social <- varDyadCovar(array(c(social_2,social_3),
+	dim=c(numberActors,numberActors,2)))
+
+gossiptarget <- varDyadCovar(array(c(gossiptarget_2,gossiptarget_3),
+	dim=c(numberActors,numberActors,2)))
+
+friends <- varDyadCovar(array(c(friends_2,friends_3),
+	dim=c(numberActors,numberActors,2)))
+
+antipathy <- varDyadCovar(array(
+    c(dislike_2,dislike_3,dislike_4),
+    dim = c(numberActors,numberActors,2))) 
+```
+
+```{r}
+# VARIANT ACTOR ATTRIBUTE:
+# indegree of friendship
+n_friends<- cbind(degree(friends_2_adj, mode = "in"),degree(friends_3_adj, mode = "in"),degree(friends_4_adj, mode = "in"))
+
+# Normalize
+n_friends <- (n_friends/max(n_friends))*10
+
+# independent variables should not have much more than 10 categories
+n_friends[n_friends > 0 & n_friends <= 1] <- 1
+n_friends[n_friends > 1 & n_friends <= 2] <- 2
+n_friends[n_friends > 2 & n_friends <= 3] <- 3
+n_friends[n_friends > 3 & n_friends <= 4] <- 4
+n_friends[n_friends > 4 & n_friends <= 5] <- 5
+n_friends[n_friends > 5 & n_friends <= 6] <- 6
+n_friends[n_friends > 6 & n_friends <= 7] <- 7
+n_friends[n_friends > 7 & n_friends <= 8] <- 8
+n_friends[n_friends > 8 & n_friends <= 9] <- 9
+n_friends[n_friends > 9 & n_friends <= 10] <- 10
+nfriends <- varCovar(n_friends)
+```
+
+```{r}
+# Constant actor variable
+Gender <- as.numeric(studdata$gender_2)
+Gender <- coCovar(Gender, centered = F)
+```
+
+### Save object
+```{r}
+# For MoM analysis siena07 siena08, multigroup siena07 and sienaBayes.
+netDynamics <- sienaDataCreate(emperors, relational, antisocial, social, gossiptarget, friends, antipathy, nfriends, Gender)
+save(netDynamics, file=paste0('netDynamics',classroom,'.Rdata'))
+```
+
+# QAP-test
+
+### QAP Naked Emperors and Upward Status Discrepancy networks 
+
+```{r}
+### COMPARING NAKED EMPEROR AND 1st degree 2nd degree discrepancy
+# 2 - 1
+# 2nd wave
+discrepancy_2 <- seconddegree_2 - firstdegree_2 # others look up nominations - I look up nominations = 1 (discrepancy), 0 (equal) or -1 looked up to but not by others
+discrepancy_2[discrepancy_2 == -1] = 0 # remove -1 to only keep discrepancy nominations
+discrepancy_2_adj <- graph.adjacency(discrepancy_2, mode = "directed")
+
+# 2 - 1
+# 3d wave
+discrepancy_3 <- seconddegree_3 - firstdegree_3 # others look up nominations - I look up nominations = 1 (discrepancy), 0 (equal) or -1 looked up to but not by others
+discrepancy_3[discrepancy_3 == -1] = 0 # remove -1 to only keep discrepancy nominations
+discrepancy_3_adj <- graph.adjacency(discrepancy_3, mode = "directed")
+
+# 2 - 1
+# 4th wave
+discrepancy_4 <- seconddegree_4 - firstdegree_4 # others look up nominations - I look up nominations = 1 (discrepancy), 0 (equal) or -1 looked up to but not by others
+discrepancy_4[discrepancy_4 == -1] = 0 # remove -1 to only keep discrepancy nominations
+discrepancy_4_adj <- graph.adjacency(discrepancy_4, mode = "directed")
+```
+
+```{r}
+# QAP analysis using netlm, for each status discrepancy network and NE network. 
+qap2  <-netlm(y=discrepancy_2,x=emperor_2,nullhyp=c("qap"), test.statistic=c("t-value"))
+
+qap3 <- netlm(y=discrepancy_3,x=emperor_3,nullhyp=c("qap"), test.statistic=c("t-value"))
+
+qap4 <- netlm(y=discrepancy_4,x=emperor_4,nullhyp=c("qap"), test.statistic=c("t-value"))
+```
+
+### Save results qap-test
+```{r}
+save(qap2, file = paste0("qap2",classroom,".Rdata"))
+save(qap3, file = paste0("qap3",classroom,".Rdata"))
+save(qap4, file = paste0("qap4",classroom,".Rdata"))
+```
+
+### Create list with all variables
+
+```{r}
+variablelist <-list(list(emperor_2,emperor_3,emperor_4),list(relational_2,relational_3,relational_4),list(antisocial_2,antisocial_3,antisocial_4),list(social_2,social_3,social_4),list(gossiptarget_2,gossiptarget_3,gossiptarget_4),list(friends_2,friends_3,friends_4),list(dislike_2,dislike_3,dislike_4),n_friends,studdata$gender_2)
+
+names(variablelist) <- c("emperors","relational","antisocial","social","gossip","friendship","antipathy","n_friends","gender")
+
+
+save(variablelist, file = paste0("variables_",classroom,".Rdata"))
+```

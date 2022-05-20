@@ -1,0 +1,1247 @@
+---
+title: "'The Naked Emperor'- thesis syntax 2: Description of variables"
+subtitle: "Lisanne van Veen"
+output: pdf_document
+---
+
+This script creates the descriptive statistics and visualization of the Naked Emperor networks.
+It also includes the descriptives for the independent networks and the barplot for the popularity norms.
+
+### preliminaries
+```{r}
+knitr::opts_chunk$set(eval=F) #prevent evaluation while knitting pdf to show syntax
+```
+
+```{r}
+# load libraries
+library(igraph)
+library(tidyverse)
+library(kableExtra)
+library(ggplot2)
+```
+
+### load variables
+
+```{r}
+load("variables_1200.Rdata")
+variables_1200 <- variablelist
+
+load("variables_1300.Rdata")
+variables_1300 <- variablelist
+
+load("variables_1500.Rdata")
+variables_1500 <- variablelist
+
+load("variables_3100.Rdata")
+variables_3100 <- variablelist
+
+load("variables_3200.Rdata")
+variables_3200 <- variablelist
+
+load("variables_3300.Rdata")
+variables_3300 <- variablelist
+
+load("variables_3400.Rdata")
+variables_3400 <- variablelist
+
+load("variables_6200.Rdata")
+variables_6200 <- variablelist
+
+load("variables_7100.Rdata")
+variables_7100 <- variablelist
+```
+
+```{r load student data in dataframe, include = F}
+student_data <- as_tibble(read_sav("/Users/lisanne/Desktop/Master Computational Social Science/NETWORK PAPER/OTKA_dataset/ENG - Data/OTKA_student_w1234.sav"))
+```
+
+## Description of full dataset and sample
+
+```{r}
+# select only the classrooms for study from the student data
+sample_data <- student_data %>% filter(class_2 == 1200 & class_3 == 1200 & class_4 == 1200 |
+                                        class_2 == 1300 & class_3 == 1300 & class_4 == 1300 |
+                                        class_2 == 1500 & class_3 == 1500 & class_4 == 1500 |
+                                        class_2 == 3100 & class_3 == 3100 & class_4 == 3100 | 
+                                        class_2 == 3200 & class_3 == 3200 & class_4 == 3200 | 
+                                        class_2 == 3300 & class_3 == 3300 & class_4 == 3300 | 
+                                        class_2 == 3400 & class_3 == 3400 & class_4 == 3400 |
+                                        class_2 == 6200 & class_3 == 6200 & class_4 == 6200 | 
+                                        class_2 == 7100 & class_3 == 7100 & class_4 == 7100) 
+N_sample <- nrow(sample_data) # note the N of the sample
+N_students <-nrow(student_data) # note the N of the full dataset
+```
+
+```{r}
+# Note the description of the full dataset - wave 2 (wave 1 in written thesis)
+
+# number of dropouts per wave
+(dropout.23 <- sum(student_data$left23,na.rm=T))
+(dropout.34 <- sum(student_data$left34,na.rm=T))
+
+# how many students were here during the wave?
+student_data2 <- student_data %>%  filter(wasthere2 == 1)
+N2 <- nrow(student_data2)
+
+#birth year
+(median.age2 <- 2011 - median(student_data2$yrbrth_2,na.rm=T))
+
+#gender
+boys <- sum(student_data2$gender_2 == 1, na.rm = T)
+girls <- sum(student_data2$gender_2 == 2, na.rm = T)
+
+#location
+(city <- sum(student_data2$settlementschool_2 ==1, na.rm=T))
+(town.1 <- sum(student_data2$settlementschool_2 ==2, na.rm=T))
+(town.2 <- sum(student_data2$settlementschool_2 ==3, na.rm=T))
+(capital <- sum(student_data2$settlementschool_2 ==4, na.rm=T))
+
+# type of school
+(grammar <- sum(student_data2$typeeduc_2 == 1,na.rm=T))
+(technical <- sum(student_data2$typeeduc_2 == 2,na.rm=T))
+(vocational <- sum(student_data2$typeeduc_2 == 3,na.rm=T))
+
+# ETHNICITY
+(Hungarian <- sum(student_data2$ethnic_2 == 1, na.rm = T))
+(Gipsy.Roma <- sum(student_data2$ethnic_2 == 2, na.rm = T))
+(Mixed <- sum(student_data2$ethnic_2 == 3, na.rm = T))
+(Other <- sum(student_data2$ethnic_2 == 4, na.rm = T))
+
+# Participation
+Participation <- sum(student_data2$participate2 == 1 ,na.rm=T)
+
+# good grades important
+prefers.good.grades <- sum(student_data2$impstd_2 == 1,na.rm=T)
+# prefer having bad grades
+prefers.bad.grades <- sum(student_data2$impstd_2 == 2,na.rm=T)
+
+# regular regular.smoking
+regular.smoking <- sum(student_data2$trycig_2 == 4, na.rm=T)
+# regular regular.drinking
+regular.drinking <- sum(student_data2$tryalc_2 == 4, na.rm=T)
+
+# is.dating
+is.dating <- sum(student_data2$datenw_2==1, na.rm=T)
+
+data.w2 <-rbind(Participation,boys,girls,city,town.1,town.2,capital,grammar,technical,vocational,Hungarian,Gipsy.Roma,Mixed,Other,prefers.good.grades,prefers.bad.grades,regular.smoking,regular.drinking,is.dating)
+
+data.w2.prc <- sapply(data.w2, function(x){round((x/N2)*100,2)}) # change values into percentages, round to decimals of 2
+data.w2.prc <- paste0(data.w2.prc,"%") # add % sign to table
+```
+
+```{r}
+# Note the description of the full dataset - wave 3 (wave 2 in written thesis)
+# how many students were there in wave 3
+student_data3 <- student_data %>%  filter(wasthere3 == 1)
+N3 <- nrow(student_data3)
+
+#birthyear
+(median.age3 <- 2012 - median(student_data3$yrbrth_3,na.rm=T))
+
+
+#gender
+boys <- sum(student_data3$gender_3 == 1, na.rm = T)
+girls <- sum(student_data3$gender_3 == 2, na.rm = T)
+
+#location
+(city <- sum(student_data3$settlementschool_3 ==1, na.rm=T))
+(town.1 <- sum(student_data3$settlementschool_3 ==2, na.rm=T))
+(town.2 <- sum(student_data3$settlementschool_3 ==3, na.rm=T))
+(capital <- sum(student_data3$settlementschool_3 ==4, na.rm=T))
+
+# type of school
+(grammar <- sum(student_data3$typeeduc_3 == 1,na.rm=T))
+(technical <- sum(student_data3$typeeduc_3 == 2,na.rm=T))
+(vocational <- sum(student_data3$typeeduc_3 == 3,na.rm=T))
+
+
+# ETHNICITY
+(Hungarian <- sum(student_data3$ethnic_3 == 1, na.rm = T))
+(Gipsy.Roma <- sum(student_data3$ethnic_3 == 2, na.rm = T))
+(Mixed <- sum(student_data3$ethnic_3 == 3, na.rm = T))
+(Other <- sum(student_data3$ethnic_3 == 4, na.rm = T))
+
+# Participation
+Participation <- sum(student_data3$participate3 == 1,na.rm=T)
+
+# good grades important
+prefers.good.grades <- sum(student_data3$impstd_3 == 1,na.rm=T)
+# prefer having bad grades
+prefers.bad.grades <- sum(student_data3$impstd_3 == 2,na.rm=T)
+
+# regular regular.smoking
+regular.smoking <- sum(student_data3$trycig_3 == 4, na.rm=T)
+# regular regular.drinking
+regular.drinking <- sum(student_data3$tryalc_3 == 4, na.rm=T)
+
+# is.dating
+is.dating <- sum(student_data3$datenw_3==1, na.rm=T)
+
+data.w3 <-rbind(Participation,boys,girls,city,town.1,town.2,capital,grammar,technical,vocational,Hungarian,Gipsy.Roma,Mixed,Other,prefers.good.grades,prefers.bad.grades,regular.smoking,regular.drinking,is.dating)
+
+data.w3.prc <- sapply(data.w3, function(x){round((x/N3)*100,2)})
+data.w3.prc <- paste0(data.w3.prc,"%")
+```
+
+```{r}
+# Note the description of the full dataset - wave 4 (wave 3 in written thesis)
+# how many students were there in wave 4?
+student_data4 <- student_data %>%  filter(wasthere4 == 1)
+N4 <- nrow(student_data4)
+
+#birthyear
+(median.age4 <- 2013 - median(student_data4$yrbrth_4,na.rm=T))
+
+
+#gender
+boys <- sum(student_data4$gender_4 == 1 & student_data4$wasthere4 == 1, na.rm = T)
+girls <- sum(student_data4$gender_4 == 2 &student_data4$wasthere4 == 1, na.rm = T)
+
+#location
+(city <- sum(student_data4$settlementschool_4 ==1, na.rm=T))
+(town.1 <- sum(student_data4$settlementschool_4 ==2, na.rm=T))
+(town.2 <- sum(student_data4$settlementschool_4 ==3, na.rm=T))
+(capital <- sum(student_data4$settlementschool_4 ==4, na.rm=T))
+
+# type of school
+(grammar <- sum(student_data4$typeeduc_4 == 1,na.rm=T))
+(technical <- sum(student_data4$typeeduc_4 == 2,na.rm=T))
+(vocational <- sum(student_data4$typeeduc_4 == 3,na.rm=T))
+
+# ETHNICITY
+(Hungarian <- sum(student_data4$ethnic_4 == 1, na.rm = T))
+(Gipsy.Roma <- sum(student_data4$ethnic_4 == 2, na.rm = T))
+(Mixed <- sum(student_data4$ethnic_4 == 3, na.rm = T))
+(Other <- sum(student_data4$ethnic_4 == 4, na.rm = T))
+
+# Participation
+Participation <- sum(student_data4$participate4 == 1,na.rm=T)
+
+# good grades important
+prefers.good.grades <- sum(student_data4$impstd_4 == 1,na.rm=T)
+# prefer having bad grades
+prefers.bad.grades <- sum(student_data4$impstd_4 == 2,na.rm=T)
+
+# regular regular.smoking
+regular.smoking <- sum(student_data4$trycig_4 == 4, na.rm=T)
+# regular regular.drinking
+regular.drinking <- sum(student_data4$tryalc_4 == 4, na.rm=T)
+
+# is.dating
+is.dating <- sum(student_data4$datenw_4 ==1, na.rm=T)
+
+data.w4 <-rbind(Participation,boys,girls,city,town.1,town.2,capital,grammar,technical,vocational,Hungarian,Gipsy.Roma,Mixed,Other,prefers.good.grades,prefers.bad.grades,regular.smoking,regular.drinking,is.dating)
+
+(data.w4.prc <- sapply(data.w4, function(x){round((x/N4)*100,2)}))
+
+data.w4.prc <- paste0(data.w4.prc,"%")
+
+data.w4.prc
+```
+
+### output table of full dataset 
+
+```{r}
+dataset <- cbind(data.w2.prc,data.w3.prc,data.w4.prc)  # bind these columns
+rownames(dataset) <- rownames(data.w4) # change rownames
+
+dropouts <- c(" ", paste0(round((dropout.23/N2)*100,2),"%"),paste0(round((dropout.34/N3)*100,2),"%")) # give percentages to dropouts
+median.age <- c(median.age2,median.age3,median.age4)
+
+N <- c(N2,N3,N4) # number of participant per wave
+
+dataset <- rbind(N,median.age, dropouts, dataset)
+colnames(dataset) <- c("wave2","wave3","wave4")
+```
+
+## sample description
+
+```{r}
+# Wave 2 (wave 1 in written study)
+
+# how many students present?
+N2 <- nrow(sample_data)
+#birthyear
+(median.age2 <- 2011 - median(sample_data$yrbrth_2,na.rm=T))
+
+#gender
+boys <- sum(sample_data$gender_2 == 1, na.rm = T)
+girls <- sum(sample_data$gender_2 == 2, na.rm = T)
+
+#location
+(city <- sum(sample_data$settlementschool_2 ==1, na.rm=T))
+(town.1 <- sum(sample_data$settlementschool_2 ==2, na.rm=T))
+(town.2 <- sum(sample_data$settlementschool_2 ==3, na.rm=T))
+(capital <- sum(sample_data$settlementschool_2 ==4, na.rm=T))
+
+# type of school
+(grammar <- sum(sample_data$typeeduc_2 == 1,na.rm=T))
+(technical <- sum(sample_data$typeeduc_2 == 2,na.rm=T))
+(vocational <- sum(sample_data$typeeduc_2 == 3,na.rm=T))
+
+# ETHNICITY
+(Hungarian <- sum(sample_data$ethnic_2 == 1, na.rm = T))
+(Gipsy.Roma <- sum(sample_data$ethnic_2 == 2, na.rm = T))
+(Mixed <- sum(sample_data$ethnic_2 == 3, na.rm = T))
+(Other <- sum(sample_data$ethnic_2 == 4, na.rm = T))
+
+# Participation
+Participation <- sum(sample_data$participate2 == 1 ,na.rm=T)
+
+# good grades important
+prefers.good.grades <- sum(sample_data$impstd_2 == 1,na.rm=T)
+# prefer having bad grades
+prefers.bad.grades <- sum(sample_data$impstd_2 == 2,na.rm=T)
+
+# regular regular.smoking
+regular.smoking <- sum(sample_data$trycig_2 == 4, na.rm=T)
+# regular regular.drinking
+regular.drinking <- sum(sample_data$tryalc_2 == 4, na.rm=T)
+
+# is.dating
+is.dating <- sum(sample_data$datenw_2==1, na.rm=T)
+
+data.w2 <-rbind(Participation,boys,girls,city,town.1,town.2,capital,grammar,technical,vocational,Hungarian,Gipsy.Roma,Mixed,Other,prefers.good.grades,prefers.bad.grades,regular.smoking,regular.drinking,is.dating)
+
+data.w2.prc <- sapply(data.w2, function(x){round((x/N2)*100,2)})
+data.w2.prc <- paste0(data.w2.prc,"%")
+```
+
+```{r}
+# Wave 3 (wave 2 in written study)
+
+# how many students present?
+N3 <- nrow(sample_data)
+#birthyear
+(median.age3 <- 2012 - median(sample_data$yrbrth_3,na.rm=T))
+
+
+#gender
+boys <- sum(sample_data$gender_3 == 1, na.rm = T)
+girls <- sum(sample_data$gender_3 == 2, na.rm = T)
+
+#location
+(city <- sum(sample_data$settlementschool_3 ==1, na.rm=T))
+(town.1 <- sum(sample_data$settlementschool_3 ==2, na.rm=T))
+(town.2 <- sum(sample_data$settlementschool_3 ==3, na.rm=T))
+(capital <- sum(sample_data$settlementschool_3 ==4, na.rm=T))
+
+# type of school
+(grammar <- sum(sample_data$typeeduc_3 == 1,na.rm=T))
+(technical <- sum(sample_data$typeeduc_3 == 2,na.rm=T))
+(vocational <- sum(sample_data$typeeduc_3 == 3,na.rm=T))
+
+
+# ETHNICITY
+(Hungarian <- sum(sample_data$ethnic_3 == 1, na.rm = T))
+(Gipsy.Roma <- sum(sample_data$ethnic_3 == 2, na.rm = T))
+(Mixed <- sum(sample_data$ethnic_3 == 3, na.rm = T))
+(Other <- sum(sample_data$ethnic_3 == 4, na.rm = T))
+
+# Participation
+Participation <- sum(sample_data$participate3 == 1,na.rm=T)
+
+# good grades important
+prefers.good.grades <- sum(sample_data$impstd_3 == 1,na.rm=T)
+# prefer having bad grades
+prefers.bad.grades <- sum(sample_data$impstd_3 == 2,na.rm=T)
+
+# regular regular.smoking
+regular.smoking <- sum(sample_data$trycig_3 == 4, na.rm=T)
+# regular regular.drinking
+regular.drinking <- sum(sample_data$tryalc_3 == 4, na.rm=T)
+
+# is.dating
+is.dating <- sum(sample_data$datenw_3==1, na.rm=T)
+
+data.w3 <-rbind(Participation,boys,girls,city,town.1,town.2,capital,grammar,technical,vocational,Hungarian,Gipsy.Roma,Mixed,Other,prefers.good.grades,prefers.bad.grades,regular.smoking,regular.drinking,is.dating)
+
+data.w3.prc <- sapply(data.w3, function(x){round((x/N3)*100,2)})
+data.w3.prc <- paste0(data.w3.prc,"%")
+
+data.w3.prc
+```
+
+```{r}
+# Wave 4 (wave 3 in written study)
+
+# how many students present?
+N4 <- nrow(sample_data)
+
+#birthyear
+(median.age4 <- 2013 - median(sample_data$yrbrth_4,na.rm=T))
+
+
+#gender
+boys <- sum(sample_data$gender_4 == 1 & sample_data$wasthere4 == 1, na.rm = T)
+girls <- sum(sample_data$gender_4 == 2 &sample_data$wasthere4 == 1, na.rm = T)
+
+
+
+#location
+(city <- sum(sample_data$settlementschool_4 ==1, na.rm=T))
+(town.1 <- sum(sample_data$settlementschool_4 ==2, na.rm=T))
+(town.2 <- sum(sample_data$settlementschool_4 ==3, na.rm=T))
+(capital <- sum(sample_data$settlementschool_4 ==4, na.rm=T))
+
+# type of school
+(grammar <- sum(sample_data$typeeduc_4 == 1,na.rm=T))
+(technical <- sum(sample_data$typeeduc_4 == 2,na.rm=T))
+(vocational <- sum(sample_data$typeeduc_4 == 3,na.rm=T))
+
+# ETHNICITY
+(Hungarian <- sum(sample_data$ethnic_4 == 1, na.rm = T))
+(Gipsy.Roma <- sum(sample_data$ethnic_4 == 2, na.rm = T))
+(Mixed <- sum(sample_data$ethnic_4 == 3, na.rm = T))
+(Other <- sum(sample_data$ethnic_4 == 4, na.rm = T))
+
+# Participation
+Participation <- sum(sample_data$participate4 == 1,na.rm=T)
+
+# good grades important
+prefers.good.grades <- sum(sample_data$impstd_4 == 1,na.rm=T)
+# prefer having bad grades
+prefers.bad.grades <- sum(sample_data$impstd_4 == 2,na.rm=T)
+
+# regular regular.smoking
+regular.smoking <- sum(sample_data$trycig_4 == 4, na.rm=T)
+# regular regular.drinking
+regular.drinking <- sum(sample_data$tryalc_4 == 4, na.rm=T)
+
+# is.dating
+is.dating <- sum(sample_data$datenw_4 ==1, na.rm=T)
+
+data.w4 <-rbind(Participation,boys,girls,city,town.1,town.2,capital,grammar,technical,vocational,Hungarian,Gipsy.Roma,Mixed,Other,prefers.good.grades,prefers.bad.grades,regular.smoking,regular.drinking,is.dating)
+
+(data.w4.prc <- sapply(data.w4, function(x){round((x/N4)*100,2)}))
+
+data.w4.prc <- paste0(data.w4.prc,"%")
+
+data.w4.prc
+```
+
+### output table of full dataset 
+```{r}
+sample <- cbind(data.w2.prc,data.w3.prc,data.w4.prc)
+rownames(sample) <- rownames(data.w4)
+
+N <- c(N2,N3,N4)
+median.age<- c(median.age2,median.age3,median.age4)
+dropouts <- c("","","")
+sample <- rbind(N,median.age,dropouts,sample)
+colnames(sample) <- c("wave2","wave3","wave4")
+```
+
+### Table to compare dataset and sample
+
+```{r}
+comp.table <- cbind(dataset,sample)
+comp.table <-as.data.frame(comp.table)
+colnames(comp.table) <- c("Wave 1", "Wave 2", "Wave 3","Wave 1", "Wave 2", "Wave 3") # change column names so they are similar to the annotation in the thesis
+```
+
+```{r}
+# save to output table for publishing
+kbl(comp.table, caption = "Table 1: Composition of Study Sample vs. RECENS dataset", booktabs = T) %>% kable_styling(font_size = 12, htmltable_class = "lightable-classic", html_font = "Times New Roman",full_width = F) %>%  pack_rows(group_label = "Gender", 5,6) %>% pack_rows("Location", 7,10) %>% pack_rows("Education", 11,13) %>% 
+pack_rows("Ethnicity", 14,17) %>% pack_rows("Attitudes",18,22) %>% add_header_above(c(" " =1,"Full dataset"=3,"Sample"=3)) %>% footnote(general = "Source: RECENS (2016)\n Characteristics of the full dataset versus the sample being used in the current study.") %>% save_kable("Full_samp.png",bs_theme = "flatly")
+```
+
+# Description of NE networks
+
+### functions
+```{r function for table with network descriptives}
+
+network_descriptives <- function(network1,network2,network3){
+df <- data.frame(
+    N = c(vcount(network1),vcount(network2),vcount(network3)),                # count number of nodes
+    E = c(ecount(network1),ecount(network2),ecount(network3)),                # number of ties
+    dens = c(edge_density(network1),edge_density(network2),edge_density(network3)),     # density
+    M.in = c(mean(igraph::degree(network1,mode=c("in"))),                     # mean indegree
+                      mean(igraph::degree(network2,mode=c("in"))),
+                      mean(igraph::degree(network3,mode=c("in")))),
+    SD.in = c(sd(igraph::degree(network1,mode=c("in"))),                      # SD indegree
+                      sd(igraph::degree(network2,mode=c("in"))),
+                      sd(igraph::degree(network3,mode=c("in")))),
+    max.in= c(max(igraph::degree(network1,mode=c("in"))),                     # max indegree
+                      max(igraph::degree(network2,mode=c("in"))),
+                      max(igraph::degree(network3,mode=c("in")))),
+    M.out = c(mean(igraph::degree(network1,mode=c("out"))),                   # mean outdegree
+                      mean(igraph::degree(network2,mode=c("out"))),
+                      mean(igraph::degree(network3,mode=c("out")))),
+    SD.out = c(sd(igraph::degree(network1,mode=c("out"))),                    # SD outdegree
+                      sd(igraph::degree(network2,mode=c("out"))),
+                      sd(igraph::degree(network3,mode=c("out")))),
+    max.out = c(max(igraph::degree(network1,mode=c("out"))),                  # max outdegree
+                      max(igraph::degree(network2,mode=c("out"))),
+                      max(igraph::degree(network3,mode=c("out")))),
+    recip = c(reciprocity(network1),reciprocity(network2),reciprocity(network3)),    # reciprocity index
+    trans = c(transitivity(network1),transitivity(network2),transitivity(network3)), # transitivity index
+    
+    row.names = c("wave 1", "wave 2", "wave 3")
+  )
+
+df <- df %>% mutate_if(is.numeric,round,digits=3) # round to 3 digits
+
+return(df)
+
+}
+```
+
+```{r, Hamming and Jaccard}
+# functions for calculating Hamming and Jaccard index
+Hamming <- function(changetable) {
+    return(changetable[2,1] + changetable[1,2])
+}
+Jaccard <- function(changetable) {
+    return(changetable[2,2]/(changetable[1,2] + changetable[2,1] + changetable[2,2]))
+}
+```
+
+```{r, Jaccard and Hamming table functions}
+# TEST SUFFICIENT CHANGE <0.1 problematic, >0.3 safe
+network_change<-function(m2,m3,m4){
+emperor23 <- table(m2, m3)
+emperor34 <- table(m3, m4)
+
+hamming <- c(" ", Hamming(emperor23),Hamming(emperor34))
+jaccard <- c(" ", round(Jaccard(emperor23),digits = 3),round(Jaccard(emperor34),digits=3))
+
+df <- data.frame(Ham = hamming, Jac = jaccard)
+
+return(df)
+}
+```
+
+### descriptive statistics for NE network per class and wave
+
+```{r}
+# make igraph object for every Naked Emperor network, per class and wave
+# to be able to apply function to describe network
+# From here, wave 1, 2 and 3 are as described in the thesis (wave 2, 3 and 4 from the original dataset)
+# for class 1200:
+network1_12 <- graph.adjacency((variables_1200[[1]][[1]]), mode = "directed") # wave 1
+network2_12 <- graph.adjacency(variables_1200[[1]][[2]], mode = "directed") # wave 2
+network3_12<- graph.adjacency(variables_1200[[1]][[3]], mode = "directed") # wave 3
+# describe network
+nd_12<-network_descriptives(network1_12,network2_12,network3_12)
+# calculate jaccard and hammond index
+jh12 <-network_change(variables_1200[[1]][[1]],variables_1200[[1]][[2]],variables_1200[[1]][[3]])
+# count the number of isolates in the network
+iso12 <- c(length(isolates(variables_1200[[1]][[1]])),length(isolates(variables_1200[[1]][[2]])),length(isolates(variables_1200[[1]][[3]])))
+
+# this is the same for the classes that follow:
+
+network1_13 <- graph.adjacency(variables_1300[[1]][[1]], mode = "directed")
+network2_13 <- graph.adjacency(variables_1300[[1]][[2]], mode = "directed")
+network3_13 <- graph.adjacency(variables_1300[[1]][[3]], mode = "directed")
+nd_13<-network_descriptives(network1_13,network2_13,network3_13)
+jh13 <-network_change(variables_1300[[1]][[1]],variables_1300[[1]][[2]],variables_1300[[1]][[3]])
+iso13 <- c(length(isolates(variables_1300[[1]][[1]])),length(isolates(variables_1300[[1]][[2]])),length(isolates(variables_1300[[1]][[3]])))
+
+
+network1_15 <- graph.adjacency(variables_1500[[1]][[1]], mode = "directed")
+network2_15 <- graph.adjacency(variables_1500[[1]][[2]], mode = "directed")
+network3_15 <- graph.adjacency(variables_1500[[1]][[3]], mode = "directed")
+nd_15<-network_descriptives(network1_15,network2_15,network3_15)
+jh15 <-network_change(variables_1500[[1]][[1]],variables_1500[[1]][[2]],variables_1500[[1]][[3]])
+iso15 <- c(length(isolates(variables_1500[[1]][[1]])),length(isolates(variables_1500[[1]][[2]])),length(isolates(variables_1500[[1]][[3]])))
+
+network1_31 <- graph.adjacency(variables_3100[[1]][[1]], mode = "directed")
+network2_31 <- graph.adjacency(variables_3100[[1]][[2]], mode = "directed")
+network3_31 <- graph.adjacency(variables_3100[[1]][[3]], mode = "directed")
+nd_31<-network_descriptives(network1_31,network2_31,network3_31)
+jh31 <-network_change(variables_3100[[1]][[1]],variables_3100[[1]][[2]],variables_3100[[1]][[3]])
+iso31<- c(length(isolates(variables_3100[[1]][[1]])),length(isolates(variables_3100[[1]][[2]])),length(isolates(variables_3100[[1]][[3]])))
+
+network1_32 <- graph.adjacency(variables_3200[[1]][[1]], mode = "directed")
+network2_32 <- graph.adjacency(variables_3200[[1]][[2]], mode = "directed")
+network3_32 <- graph.adjacency(variables_3200[[1]][[3]], mode = "directed")
+nd_32<-network_descriptives(network1_32,network2_32,network3_32)
+jh32 <-network_change(variables_3200[[1]][[1]],variables_3200[[1]][[2]],variables_3200[[1]][[3]])
+iso32 <- c(length(isolates(variables_3200[[1]][[1]])),length(isolates(variables_3200[[1]][[2]])),length(isolates(variables_3200[[1]][[3]])))
+
+network1_33 <- graph.adjacency(variables_3300[[1]][[1]], mode = "directed")
+network2_33 <- graph.adjacency(variables_3300[[1]][[2]], mode = "directed")
+network3_33 <- graph.adjacency(variables_3300[[1]][[3]], mode = "directed")
+nd_33<-network_descriptives(network1_33,network2_33,network3_33)
+jh33 <-network_change(variables_3300[[1]][[1]],variables_3300[[1]][[2]],variables_3300[[1]][[3]])
+iso33 <- c(length(isolates(variables_3300[[1]][[1]])),length(isolates(variables_3300[[1]][[2]])),length(isolates(variables_3300[[1]][[3]])))
+
+network1_34 <- graph.adjacency(variables_3400[[1]][[1]], mode = "directed")
+network2_34 <- graph.adjacency(variables_3400[[1]][[2]], mode = "directed")
+network3_34 <- graph.adjacency(variables_3400[[1]][[3]], mode = "directed")
+nd_34<-network_descriptives(network1_34,network2_34,network3_34)
+jh34 <-network_change(variables_3400[[1]][[1]],variables_3400[[1]][[2]],variables_3400[[1]][[3]])
+iso34 <- c(length(isolates(variables_3400[[1]][[1]])),length(isolates(variables_3400[[1]][[2]])),length(isolates(variables_3400[[1]][[3]])))
+
+network1_62 <- graph.adjacency(variables_6200[[1]][[1]], mode = "directed")
+network2_62 <- graph.adjacency(variables_6200[[1]][[2]], mode = "directed")
+network3_62 <- graph.adjacency(variables_6200[[1]][[3]], mode = "directed")
+nd_62<-network_descriptives(network1_62,network2_62,network3_62)
+jh62 <-network_change(variables_6200[[1]][[1]],variables_6200[[1]][[2]],variables_6200[[1]][[3]])
+iso62 <- c(length(isolates(variables_6200[[1]][[1]])),length(isolates(variables_6200[[1]][[2]])),length(isolates(variables_6200[[1]][[3]])))
+
+network1_71 <- graph.adjacency(variables_7100[[1]][[1]], mode = "directed")
+network2_71 <- graph.adjacency(variables_7100[[1]][[2]], mode = "directed")
+network3_71 <- graph.adjacency(variables_7100[[1]][[3]], mode = "directed")
+nd_71<-network_descriptives(network1_71,network2_71,network3_71)
+jh71 <-network_change(variables_7100[[1]][[1]],variables_7100[[1]][[2]],variables_7100[[1]][[3]])
+iso71 <- c(length(isolates(variables_7100[[1]][[1]])),length(isolates(variables_7100[[1]][[2]])),length(isolates(variables_7100[[1]][[3]])))
+```
+
+```{r}
+# merge the different vectors to one table
+all_nd<-rbind(nd_12,nd_13,nd_15,nd_31,nd_32,nd_33,nd_34,nd_62,nd_71)
+wave <-rep(c("wave 1","wave 2","wave 3"),9)
+
+alljc <- rbind(jh12,jh13,jh15,jh31,jh32,jh33,jh34,jh62,jh71)
+iso <- c(iso12,iso13,iso15,iso31,iso32,iso33,iso34,iso62,iso71)
+```
+
+```{r}
+# create the vectors indicating the number of girls per class
+girls <- c(rep(sum(variables_1200$gender == 2),3), rep(sum(variables_1300$gender == 2),3),
+  rep(sum(variables_1500$gender == 2),3),
+  rep(sum(variables_3100$gender == 2),3),
+  rep(sum(variables_3200$gender == 2),3),
+  rep(sum(variables_3300$gender == 2),3),
+  rep(sum(variables_3400$gender == 2),3),
+  rep(sum(variables_6200$gender == 2),3),
+  rep(sum(variables_7100$gender == 2),3))
+
+# create the vector indicating the absent children per class
+abs <- c(3,1,2,0,0,2,0,0,0,0,1,4,1,0,3,1,3,1,5,0,2,0,3,4,1,0,0)
+
+# add the to the table with descriptives
+df_nd<-as_tibble(cbind(wave,all_nd,girls,iso,abs,alljc))
+```
+
+```{r}
+# save output table
+colnames(df_nd)[1]<-" "
+kbl(df_nd, caption = "Table 4: Descriptives Naked Emperor Networks", booktabs = T) %>% kable_styling(font_size = 12, htmltable_class = "lightable-classic", html_font = "Times New Roman",full_width = F) %>%  pack_rows(group_label = "class 1200", 1,3) %>% pack_rows("class 1300", 4,6) %>% pack_rows("class 1500", 7,9) %>% 
+pack_rows("class 3100", 10,12) %>% pack_rows("class 3200",13,15) %>% pack_rows("class 3300",16,18)%>% pack_rows("class 3400",19,21)%>% pack_rows("class 6200",22,24)%>% pack_rows("class 7100",25,27) %>% footnote(general="Source: RECENS(2016), N = 243\nE = number of ties, dens = outdegree density, M.in = Mean indegree, SD.in = Stand deviation of indegrees, max.in = Maximum indegrees, M.out = mean outdegree, SD.out = standard deviation of outdegrees, max.out = maximum outdegrees, recip = reciprocity index, trans = transitivity index, girls = number of female students, iso = isolates, abs = number of data missing (imputed with previous wave),Ham = hamming distance between this and previous wave, Jac = jaccard index between this and previous wave") %>% save_kable("network_descr.png",bs_theme = "flatly")
+```
+
+### visualizations of NE network
+
+```{r}
+# make a plot function from the igraph plot function
+plots <- function(x,y,myLayout){
+plot(x = x,
+     main= NULL,
+            vertex.color = ifelse(y  == 1, '#556B2F', '#B22222'), # boys are green, girls red
+            vertex.shape = ifelse(y  == 1, "square", "circle"),   # boys are square, girls circles    
+            vertex.size = 7 + (degree(x, mode = "in")*0.8),      # 7 as standard node size, enlarge as function of indegrees
+            vertex.label = NA,                                  # no labels                               
+            edge.color = "black",
+            edge.width = 0.8,
+            edge.arrow.size = 1,                                      
+            layout = myLayout)
+}
+```
+
+
+```{r}
+# Make layouts for plotting
+layout1200 <- layout.fruchterman.reingold(network1_12+network2_12+network3_12)
+layout1300 <- layout.fruchterman.reingold(network1_13+network2_13+network3_13)
+layout1500 <- layout.fruchterman.reingold(network1_15+network2_15+network3_15)
+layout3100 <- layout.fruchterman.reingold(network1_31+network2_31+network3_31)
+layout3200 <- layout.fruchterman.reingold(network1_32+network2_32+network3_32)
+layout3300 <- layout.fruchterman.reingold(network1_33+network2_33+network3_33)
+layout3400 <- layout.fruchterman.reingold(network1_34+network2_34+network3_34)
+layout6200 <- layout.fruchterman.reingold(network1_62+network2_62+network3_62)
+layout7100 <- layout.fruchterman.reingold(network1_71+network2_71+network3_71)
+```
+
+```{R, fig.show="hold", out.width="50%"}
+# save network visualization as png file, for every schoolclass every wave a plot
+png(filename = "plot121.png",600,600) # save filename and 600x600 as dimensions
+plots(x=network1_12,variables_1200$gender,layout1200) # x = igraph item, y= gender values, and the layout)
+while (!is.null(dev.list()))  dev.off() # to clean after saving the png to ensure it works for the next plot
+
+
+png(filename = "plot122.png",600,600)
+plots(x=network2_12,variables_1200$gender,layout1200)
+while (!is.null(dev.list()))  dev.off()
+
+
+png(filename = "plot123.png",600,600)
+plots(x=network3_12,variables_1200$gender,layout1200)
+while (!is.null(dev.list()))  dev.off()
+
+
+png(filename = "plot131.png",600,600)
+plots(x=network1_13,variables_1300$gender,layout1300)
+while (!is.null(dev.list()))  dev.off()
+
+
+png(filename = "plot132.png",600,600)
+plots(x=network2_13,variables_1300$gender,layout1300)
+while (!is.null(dev.list()))  dev.off()
+
+
+png(filename = "plot133.png",600,600)
+plots(x=network3_13,variables_1300$gender,layout1300)
+while (!is.null(dev.list()))  dev.off()
+
+png(filename = "plot151.png",600,600)
+plots(x=network1_15,variables_1500$gender,layout1500)
+while (!is.null(dev.list()))  dev.off()
+
+png(filename = "plot152.png",600,600)
+plots(x=network2_15,variables_1500$gender,layout1500)
+while (!is.null(dev.list()))  dev.off()
+
+png(filename = "plot153.png",600,600)
+plots(x=network3_15,variables_1500$gender,layout1500)
+while (!is.null(dev.list()))  dev.off()
+
+png(filename = "plot311.png",600,600)
+plots(x=network1_31,variables_3100$gender,layout3100)
+while (!is.null(dev.list()))  dev.off()
+
+png(filename = "plot312.png",600,600)
+plots(x=network2_31,variables_3100$gender,layout3100)
+while (!is.null(dev.list()))  dev.off()
+
+png(filename = "plot313.png",600,600)
+plots(x=network3_31,variables_3100$gender,layout3100)
+while (!is.null(dev.list()))  dev.off()
+
+png(filename = "plot321.png",600,600)
+plots(x=network1_32,variables_3200$gender,layout3200)
+while (!is.null(dev.list()))  dev.off()
+
+png(filename = "plot322.png",600,600)
+plots(x=network2_32,variables_3200$gender,layout3200)
+while (!is.null(dev.list()))  dev.off()
+
+png(filename = "plot323.png",600,600)
+plots(x=network3_32,variables_3200$gender,layout3200)
+while (!is.null(dev.list()))  dev.off()
+
+png(filename = "plot331.png",600,600)
+plots(x=network1_33,variables_3300$gender,layout3300)
+while (!is.null(dev.list()))  dev.off()
+
+png(filename = "plot332.png",600,600)
+plots(x=network2_33,variables_3300$gender,layout3300)
+while (!is.null(dev.list()))  dev.off()
+
+png(filename = "plot333.png",600,600)
+plots(x=network3_33,variables_3300$gender,layout3300)
+while (!is.null(dev.list()))  dev.off()
+
+png(filename = "plot341.png",600,600)
+plots(x=network1_34,variables_3400$gender,layout3400)
+while (!is.null(dev.list()))  dev.off()
+
+png(filename = "plot342.png",600,600)
+plots(x=network2_34,variables_3400$gender,layout3400)
+while (!is.null(dev.list()))  dev.off()
+
+png(filename = "plot343.png",600,600)
+plots(x=network3_34,variables_3400$gender,layout3400)
+while (!is.null(dev.list()))  dev.off()
+
+png(filename = "plot621.png",600,600)
+plots(x=network1_62,variables_6200$gender,layout6200)
+while (!is.null(dev.list()))  dev.off()
+
+png(filename = "plot622.png",600,600)
+plots(x=network2_62,variables_6200$gender,layout6200)
+while (!is.null(dev.list()))  dev.off()
+
+png(filename = "plot623.png",600,600)
+plots(x=network3_62,variables_6200$gender,layout6200)
+while (!is.null(dev.list()))  dev.off()
+
+png(filename = "plot711.png",600,600)
+plots(x=network1_71,variables_7100$gender,layout7100)
+while (!is.null(dev.list()))  dev.off()
+
+png(filename = "plot712.png",600,600)
+plots(x=network2_71,variables_7100$gender,layout7100)
+while (!is.null(dev.list()))  dev.off()
+
+png(filename = "plot713.png",600,600)
+plots(x=network3_71,variables_7100$gender,layout7100)
+while (!is.null(dev.list()))  dev.off()
+```
+
+## tables for descriptive data of independent variables
+
+```{r}
+# Function to create dataframe with relevant descriptives for the networks (to use per wave)
+indep_desc <- function(network1,network2,network3,network4,network5,network6,network7,network8,network9)
+  {
+
+  df <- data.frame(
+    
+    dens = c(edge_density(network1),edge_density(network2),edge_density(network3), # density
+                edge_density(network4),edge_density(network5),edge_density(network6),
+                edge_density(network7),edge_density(network8),edge_density(network9)),
+    
+    recip = c(reciprocity(network1),reciprocity(network2),reciprocity(network3), # reciproocity
+              reciprocity(network4),reciprocity(network5),reciprocity(network6),
+              reciprocity(network7),reciprocity(network8),reciprocity(network9)),
+    
+    trans = c(transitivity(network1),transitivity(network2),transitivity(network3), # transitivity
+              transitivity(network4),transitivity(network5),transitivity(network6),
+              transitivity(network7),transitivity(network8),transitivity(network9)),
+    
+    mean.in = c(mean(igraph::degree(network1,mode=c("in"))),                        # mean degrees
+                      mean(igraph::degree(network2,mode=c("in"))),
+                      mean(igraph::degree(network3,mode=c("in"))),
+                      mean(igraph::degree(network4,mode=c("in"))),
+                      mean(igraph::degree(network5,mode=c("in"))),
+                      mean(igraph::degree(network6,mode=c("in"))),
+                      mean(igraph::degree(network7,mode=c("in"))),
+                      mean(igraph::degree(network8,mode=c("in"))),
+                      mean(igraph::degree(network9,mode=c("in")))))
+
+df <- df %>% mutate_if(is.numeric,round,digits=3)
+
+return(df)
+
+}
+```
+
+
+```{r}
+# Describe the networks of relational aggression per wave
+# for the sake of comparing networks of the same scale, the networks are dichotomized
+# wave 1
+n1 <- graph.adjacency(ifelse(variables_1200$relational[[1]]>0,1,0),mode = "directed")
+n2 <- graph.adjacency(ifelse(variables_1300$relational[[1]]>0,1,0),mode = "directed")
+n3 <- graph.adjacency(ifelse(variables_1500$relational[[1]]>0,1,0),mode = 'directed')
+n4 <- graph.adjacency(ifelse(variables_3100$relational[[1]]>0,1,0),mode = 'directed')
+n5 <- graph.adjacency(ifelse(variables_3200$relational[[1]]>0,1,0),mode = 'directed')
+n6 <- graph.adjacency(ifelse(variables_3300$relational[[1]]>0,1,0),mode = 'directed')
+n7 <- graph.adjacency(ifelse(variables_3400$relational[[1]]>0,1,0),mode = 'directed')
+n8 <- graph.adjacency(ifelse(variables_6200$relational[[1]]>0,1,0),mode = 'directed')
+n9 <- graph.adjacency(ifelse(variables_7100$relational[[1]]>0,1,0),mode = 'directed')
+
+# save in one dataframe
+indep_w1<-indep_desc(n1,n2,n3,n4,n5,n6,n7,n8,n9)
+
+# wave 2
+n1 <- graph.adjacency(ifelse(variables_1200$relational[[2]]>0,1,0),mode = "directed")
+n2 <- graph.adjacency(ifelse(variables_1300$relational[[2]]>0,1,0),mode = "directed")
+n3 <- graph.adjacency(ifelse(variables_1500$relational[[2]]>0,1,0),mode = 'directed')
+n4 <- graph.adjacency(ifelse(variables_3100$relational[[2]]>0,1,0),mode = 'directed')
+n5 <- graph.adjacency(ifelse(variables_3200$relational[[2]]>0,1,0),mode = 'directed')
+n6 <- graph.adjacency(ifelse(variables_3300$relational[[2]]>0,1,0),mode = 'directed')
+n7 <- graph.adjacency(ifelse(variables_3400$relational[[2]]>0,1,0),mode = 'directed')
+n8 <- graph.adjacency(ifelse(variables_6200$relational[[2]]>0,1,0),mode = 'directed')
+n9 <- graph.adjacency(ifelse(variables_7100$relational[[2]]>0,1,0),mode = 'directed')
+
+indep_w2<-indep_desc(n1,n2,n3,n4,n5,n6,n7,n8,n9)
+
+# wave 3
+n1 <- graph.adjacency(ifelse(variables_1200$relational[[3]]>0,1,0),mode = "directed")
+n2 <- graph.adjacency(ifelse(variables_1300$relational[[3]]>0,1,0),mode = "directed")
+n3 <- graph.adjacency(ifelse(variables_1500$relational[[3]]>0,1,0),mode = 'directed')
+n4 <- graph.adjacency(ifelse(variables_3100$relational[[3]]>0,1,0),mode = 'directed')
+n5 <- graph.adjacency(ifelse(variables_3200$relational[[3]]>0,1,0),mode = 'directed')
+n6 <- graph.adjacency(ifelse(variables_3300$relational[[3]]>0,1,0),mode = 'directed')
+n7 <- graph.adjacency(ifelse(variables_3400$relational[[3]]>0,1,0),mode = 'directed')
+n8 <- graph.adjacency(ifelse(variables_6200$relational[[3]]>0,1,0),mode = 'directed')
+n9 <- graph.adjacency(ifelse(variables_7100$relational[[3]]>0,1,0),mode = 'directed')
+
+indep_w3<-indep_desc(n1,n2,n3,n4,n5,n6,n7,n8,n9)
+
+# get the mean values of the 9 networks, round the outcomes to 3 digits
+w1 <- sapply(indep_w1,function(x){round(mean(x),digits=3)})
+w2 <- sapply(indep_w2,function(x){round(mean(x),digits=3)})
+w3 <- sapply(indep_w3,function(x){round(mean(x),digits=3)})
+
+mean <- as_tibble(rbind(w1,w2,w3)) # save as tidyverse dataframe
+
+# get the standard deviations of the 9 networks, round the outcomes to 3 digits
+w1 <- sapply(indep_w1,function(x){round(sd(x),digits=3)})
+w2 <- sapply(indep_w2,function(x){round(sd(x),digits=3)})
+w3 <- sapply(indep_w3,function(x){round(sd(x),digits=3)})
+
+sd<- as_tibble(rbind(w1,w2,w3)) # save as tidyveerse dataframe
+
+# Make one dataframe with the relevant values for the networks of relational aggression
+Rel.aggr <- data.frame(
+  av.dens = paste0(mean$dens," (",sd$dens,")"),
+  av.recip = paste0(mean$recip," (",sd$recip,")"),
+  av.trans = paste0(mean$trans," (",sd$trans,")"),
+  av.M.degr = paste0(mean$mean.in," (",sd$mean.in,")"),
+  row.names = c("wave 1", "wave 2", "wave 3"))
+```
+
+
+```{r}
+# similar to the code above, for antisocial behavior
+n1 <- graph.adjacency(ifelse(variables_1200$antisocial[[1]]>0,1,0),mode = "directed")
+n2 <- graph.adjacency(ifelse(variables_1300$antisocial[[1]]>0,1,0),mode = "directed")
+n3 <- graph.adjacency(ifelse(variables_1500$antisocial[[1]]>0,1,0),mode = 'directed')
+n4 <- graph.adjacency(ifelse(variables_3100$antisocial[[1]]>0,1,0),mode = 'directed')
+n5 <- graph.adjacency(ifelse(variables_3200$antisocial[[1]]>0,1,0),mode = 'directed')
+n6 <- graph.adjacency(ifelse(variables_3300$antisocial[[1]]>0,1,0),mode = 'directed')
+n7 <- graph.adjacency(ifelse(variables_3400$antisocial[[1]]>0,1,0),mode = 'directed')
+n8 <- graph.adjacency(ifelse(variables_6200$antisocial[[1]]>0,1,0),mode = 'directed')
+n9 <- graph.adjacency(ifelse(variables_7100$antisocial[[1]]>0,1,0),mode = 'directed')
+
+indep_w1<-indep_desc(n1,n2,n3,n4,n5,n6,n7,n8,n9)
+
+n1 <- graph.adjacency(ifelse(variables_1200$antisocial[[2]]>0,1,0),mode = "directed")
+n2 <- graph.adjacency(ifelse(variables_1300$antisocial[[2]]>0,1,0),mode = "directed")
+n3 <- graph.adjacency(ifelse(variables_1500$antisocial[[2]]>0,1,0),mode = 'directed')
+n4 <- graph.adjacency(ifelse(variables_3100$antisocial[[2]]>0,1,0),mode = 'directed')
+n5 <- graph.adjacency(ifelse(variables_3200$antisocial[[2]]>0,1,0),mode = 'directed')
+n6 <- graph.adjacency(ifelse(variables_3300$antisocial[[2]]>0,1,0),mode = 'directed')
+n7 <- graph.adjacency(ifelse(variables_3400$antisocial[[2]]>0,1,0),mode = 'directed')
+n8 <- graph.adjacency(ifelse(variables_6200$antisocial[[2]]>0,1,0),mode = 'directed')
+n9 <- graph.adjacency(ifelse(variables_7100$antisocial[[2]]>0,1,0),mode = 'directed')
+
+indep_w2<-indep_desc(n1,n2,n3,n4,n5,n6,n7,n8,n9)
+
+n1 <- graph.adjacency(ifelse(variables_1200$antisocial[[3]]>0,1,0),mode = "directed")
+n2 <- graph.adjacency(ifelse(variables_1300$antisocial[[3]]>0,1,0),mode = "directed")
+n3 <- graph.adjacency(ifelse(variables_1500$antisocial[[3]]>0,1,0),mode = 'directed')
+n4 <- graph.adjacency(ifelse(variables_3100$antisocial[[3]]>0,1,0),mode = 'directed')
+n5 <- graph.adjacency(ifelse(variables_3200$antisocial[[3]]>0,1,0),mode = 'directed')
+n6 <- graph.adjacency(ifelse(variables_3300$antisocial[[3]]>0,1,0),mode = 'directed')
+n7 <- graph.adjacency(ifelse(variables_3400$antisocial[[3]]>0,1,0),mode = 'directed')
+n8 <- graph.adjacency(ifelse(variables_6200$antisocial[[3]]>0,1,0),mode = 'directed')
+n9 <- graph.adjacency(ifelse(variables_7100$antisocial[[3]]>0,1,0),mode = 'directed')
+
+indep_w3<-indep_desc(n1,n2,n3,n4,n5,n6,n7,n8,n9)
+
+w1 <- sapply(indep_w1,function(x){round(mean(x),digits=3)})
+w2 <- sapply(indep_w2,function(x){round(mean(x),digits=3)})
+w3 <- sapply(indep_w3,function(x){round(mean(x),digits=3)})
+
+mean <- as_tibble(rbind(w1,w2,w3))
+
+w1 <- sapply(indep_w1,function(x){round(sd(x),digits=3)})
+w2 <- sapply(indep_w2,function(x){round(sd(x),digits=3)})
+w3 <- sapply(indep_w3,function(x){round(sd(x),digits=3)})
+
+sd<- as_tibble(rbind(w1,w2,w3))
+
+
+Antisocial <- data.frame(
+  av.dens = paste0(mean$dens," (",sd$dens,")"),
+  av.recip = paste0(mean$recip," (",sd$recip,")"),
+  av.trans = paste0(mean$trans," (",sd$trans,")"),
+  av.M.degr = paste0(mean$mean.in," (",sd$mean.in,")"),
+ 
+  
+  row.names = c("wave 1", "wave 2", "wave 3"))
+```
+
+
+```{r}
+# similar to the code above, for perceived social behavior
+n1 <- graph.adjacency(ifelse(variables_1200$social[[1]]>0,1,0),mode = "directed")
+n2 <- graph.adjacency(ifelse(variables_1300$social[[1]]>0,1,0),mode = "directed")
+n3 <- graph.adjacency(ifelse(variables_1500$social[[1]]>0,1,0),mode = 'directed')
+n4 <- graph.adjacency(ifelse(variables_3100$social[[1]]>0,1,0),mode = 'directed')
+n5 <- graph.adjacency(ifelse(variables_3200$social[[1]]>0,1,0),mode = 'directed')
+n6 <- graph.adjacency(ifelse(variables_3300$social[[1]]>0,1,0),mode = 'directed')
+n7 <- graph.adjacency(ifelse(variables_3400$social[[1]]>0,1,0),mode = 'directed')
+n8 <- graph.adjacency(ifelse(variables_6200$social[[1]]>0,1,0),mode = 'directed')
+n9 <- graph.adjacency(ifelse(variables_7100$social[[1]]>0,1,0),mode = 'directed')
+
+indep_w1<-indep_desc(n1,n2,n3,n4,n5,n6,n7,n8,n9)
+
+n1 <- graph.adjacency(ifelse(variables_1200$social[[2]]>0,1,0),mode = "directed")
+n2 <- graph.adjacency(ifelse(variables_1300$social[[2]]>0,1,0),mode = "directed")
+n3 <- graph.adjacency(ifelse(variables_1500$social[[2]]>0,1,0),mode = 'directed')
+n4 <- graph.adjacency(ifelse(variables_3100$social[[2]]>0,1,0),mode = 'directed')
+n5 <- graph.adjacency(ifelse(variables_3200$social[[2]]>0,1,0),mode = 'directed')
+n6 <- graph.adjacency(ifelse(variables_3300$social[[2]]>0,1,0),mode = 'directed')
+n7 <- graph.adjacency(ifelse(variables_3400$social[[2]]>0,1,0),mode = 'directed')
+n8 <- graph.adjacency(ifelse(variables_6200$social[[2]]>0,1,0),mode = 'directed')
+n9 <- graph.adjacency(ifelse(variables_7100$social[[2]]>0,1,0),mode = 'directed')
+
+indep_w2<-indep_desc(n1,n2,n3,n4,n5,n6,n7,n8,n9)
+
+n1 <- graph.adjacency(ifelse(variables_1200$social[[3]]>0,1,0),mode = "directed")
+n2 <- graph.adjacency(ifelse(variables_1300$social[[3]]>0,1,0),mode = "directed")
+n3 <- graph.adjacency(ifelse(variables_1500$social[[3]]>0,1,0),mode = 'directed')
+n4 <- graph.adjacency(ifelse(variables_3100$social[[3]]>0,1,0),mode = 'directed')
+n5 <- graph.adjacency(ifelse(variables_3200$social[[3]]>0,1,0),mode = 'directed')
+n6 <- graph.adjacency(ifelse(variables_3300$social[[3]]>0,1,0),mode = 'directed')
+n7 <- graph.adjacency(ifelse(variables_3400$social[[3]]>0,1,0),mode = 'directed')
+n8 <- graph.adjacency(ifelse(variables_6200$social[[3]]>0,1,0),mode = 'directed')
+n9 <- graph.adjacency(ifelse(variables_7100$social[[3]]>0,1,0),mode = 'directed')
+
+indep_w3<-indep_desc(n1,n2,n3,n4,n5,n6,n7,n8,n9)
+
+w1 <- sapply(indep_w1,function(x){round(mean(x),digits=3)})
+w2 <- sapply(indep_w2,function(x){round(mean(x),digits=3)})
+w3 <- sapply(indep_w3,function(x){round(mean(x),digits=3)})
+
+mean <- as_tibble(rbind(w1,w2,w3))
+
+w1 <- sapply(indep_w1,function(x){round(sd(x),digits=3)})
+w2 <- sapply(indep_w2,function(x){round(sd(x),digits=3)})
+w3 <- sapply(indep_w3,function(x){round(sd(x),digits=3)})
+
+sd<- as_tibble(rbind(w1,w2,w3))
+
+
+Social <- data.frame(
+  av.dens = paste0(mean$dens," (",sd$dens,")"),
+  av.recip = paste0(mean$recip," (",sd$recip,")"),
+  av.trans = paste0(mean$trans," (",sd$trans,")"),
+  av.M.degr = paste0(mean$mean.in," (",sd$mean.in,")"),
+ 
+  
+  row.names = c("wave 1", "wave 2", "wave 3"))
+```
+
+
+```{r}
+# similar to the code above, for being a target of gossip, network is already binary
+n1 <- graph.adjacency(variables_1200$gossip[[1]],mode = "directed")
+n2 <- graph.adjacency(variables_1300$gossip[[1]],mode = "directed")
+n3 <- graph.adjacency(variables_1500$gossip[[1]],mode = 'directed')
+n4 <- graph.adjacency(variables_3100$gossip[[1]],mode = 'directed')
+n5 <- graph.adjacency(variables_3200$gossip[[1]],mode = 'directed')
+n6 <- graph.adjacency(variables_3300$gossip[[1]],mode = 'directed')
+n7 <- graph.adjacency(variables_3400$gossip[[1]],mode = 'directed')
+n8 <- graph.adjacency(variables_6200$gossip[[1]],mode = 'directed')
+n9 <- graph.adjacency(variables_7100$gossip[[1]],mode = 'directed')
+
+indep_w1<-indep_desc(n1,n2,n3,n4,n5,n6,n7,n8,n9)
+
+n1 <- graph.adjacency(variables_1200$gossip[[2]],mode = "directed")
+n2 <- graph.adjacency(variables_1300$gossip[[2]],mode = "directed")
+n3 <- graph.adjacency(variables_1500$gossip[[2]],mode = 'directed')
+n4 <- graph.adjacency(variables_3100$gossip[[2]],mode = 'directed')
+n5 <- graph.adjacency(variables_3200$gossip[[2]],mode = 'directed')
+n6 <- graph.adjacency(variables_3300$gossip[[2]],mode = 'directed')
+n7 <- graph.adjacency(variables_3400$gossip[[2]],mode = 'directed')
+n8 <- graph.adjacency(variables_6200$gossip[[2]],mode = 'directed')
+n9 <- graph.adjacency(variables_7100$gossip[[2]],mode = 'directed')
+
+indep_w2<-indep_desc(n1,n2,n3,n4,n5,n6,n7,n8,n9)
+
+n1 <- graph.adjacency(variables_1200$gossip[[3]],mode = "directed")
+n2 <- graph.adjacency(variables_1300$gossip[[3]],mode = "directed")
+n3 <- graph.adjacency(variables_1500$gossip[[3]],mode = 'directed')
+n4 <- graph.adjacency(variables_3100$gossip[[3]],mode = 'directed')
+n5 <- graph.adjacency(variables_3200$gossip[[3]],mode = 'directed')
+n6 <- graph.adjacency(variables_3300$gossip[[3]],mode = 'directed')
+n7 <- graph.adjacency(variables_3400$gossip[[3]],mode = 'directed')
+n8 <- graph.adjacency(variables_6200$gossip[[3]],mode = 'directed')
+n9 <- graph.adjacency(variables_7100$gossip[[3]],mode = 'directed')
+
+indep_w3<-indep_desc(n1,n2,n3,n4,n5,n6,n7,n8,n9)
+
+w1 <- sapply(indep_w1,function(x){round(mean(x),digits=3)})
+w2 <- sapply(indep_w2,function(x){round(mean(x),digits=3)})
+w3 <- sapply(indep_w3,function(x){round(mean(x),digits=3)})
+
+mean <- as_tibble(rbind(w1,w2,w3))
+
+w1 <- sapply(indep_w1,function(x){round(sd(x),digits=3)})
+w2 <- sapply(indep_w2,function(x){round(sd(x),digits=3)})
+w3 <- sapply(indep_w3,function(x){round(sd(x),digits=3)})
+
+sd<- as_tibble(rbind(w1,w2,w3))
+
+
+Gossip <- data.frame(
+  av.dens = paste0(mean$dens," (",sd$dens,")"),
+  av.recip = paste0(mean$recip," (",sd$recip,")"),
+  av.trans = paste0(mean$trans," (",sd$trans,")"),
+  av.M.degr = paste0(mean$mean.in," (",sd$mean.in,")"),
+ 
+  
+  row.names = c("wave 1", "wave 2", "wave 3"))
+```
+
+```{r}
+# similar to the code above, for antipathy, network is already binary
+n1 <- graph.adjacency(variables_1200$antipathy[[1]],mode = "directed")
+n2 <- graph.adjacency(variables_1300$antipathy[[1]],mode = "directed")
+n3 <- graph.adjacency(variables_1500$antipathy[[1]],mode = 'directed')
+n4 <- graph.adjacency(variables_3100$antipathy[[1]],mode = 'directed')
+n5 <- graph.adjacency(variables_3200$antipathy[[1]],mode = 'directed')
+n6 <- graph.adjacency(variables_3300$antipathy[[1]],mode = 'directed')
+n7 <- graph.adjacency(variables_3400$antipathy[[1]],mode = 'directed')
+n8 <- graph.adjacency(variables_6200$antipathy[[1]],mode = 'directed')
+n9 <- graph.adjacency(variables_7100$antipathy[[1]],mode = 'directed')
+
+indep_w1<-indep_desc(n1,n2,n3,n4,n5,n6,n7,n8,n9)
+
+n1 <- graph.adjacency(variables_1200$antipathy[[2]],mode = "directed")
+n2 <- graph.adjacency(variables_1300$antipathy[[2]],mode = "directed")
+n3 <- graph.adjacency(variables_1500$antipathy[[2]],mode = 'directed')
+n4 <- graph.adjacency(variables_3100$antipathy[[2]],mode = 'directed')
+n5 <- graph.adjacency(variables_3200$antipathy[[2]],mode = 'directed')
+n6 <- graph.adjacency(variables_3300$antipathy[[2]],mode = 'directed')
+n7 <- graph.adjacency(variables_3400$antipathy[[2]],mode = 'directed')
+n8 <- graph.adjacency(variables_6200$antipathy[[2]],mode = 'directed')
+n9 <- graph.adjacency(variables_7100$antipathy[[2]],mode = 'directed')
+
+indep_w2<-indep_desc(n1,n2,n3,n4,n5,n6,n7,n8,n9)
+
+n1 <- graph.adjacency(variables_1200$antipathy[[3]],mode = "directed")
+n2 <- graph.adjacency(variables_1300$antipathy[[3]],mode = "directed")
+n3 <- graph.adjacency(variables_1500$antipathy[[3]],mode = 'directed')
+n4 <- graph.adjacency(variables_3100$antipathy[[3]],mode = 'directed')
+n5 <- graph.adjacency(variables_3200$antipathy[[3]],mode = 'directed')
+n6 <- graph.adjacency(variables_3300$antipathy[[3]],mode = 'directed')
+n7 <- graph.adjacency(variables_3400$antipathy[[3]],mode = 'directed')
+n8 <- graph.adjacency(variables_6200$antipathy[[3]],mode = 'directed')
+n9 <- graph.adjacency(variables_7100$antipathy[[3]],mode = 'directed')
+
+indep_w3<-indep_desc(n1,n2,n3,n4,n5,n6,n7,n8,n9)
+
+w1 <- sapply(indep_w1,function(x){round(mean(x),digits=3)})
+w2 <- sapply(indep_w2,function(x){round(mean(x),digits=3)})
+w3 <- sapply(indep_w3,function(x){round(mean(x),digits=3)})
+
+mean <- as_tibble(rbind(w1,w2,w3))
+
+w1 <- sapply(indep_w1,function(x){round(sd(x),digits=3)})
+w2 <- sapply(indep_w2,function(x){round(sd(x),digits=3)})
+w3 <- sapply(indep_w3,function(x){round(sd(x),digits=3)})
+
+sd<- as_tibble(rbind(w1,w2,w3))
+
+
+Antipathy <- data.frame(
+  av.dens = paste0(mean$dens," (",sd$dens,")"),
+  av.recip = paste0(mean$recip," (",sd$recip,")"),
+  av.trans = paste0(mean$trans," (",sd$trans,")"),
+  av.M.degr = paste0(mean$mean.in," (",sd$mean.in,")"),
+ 
+  
+  row.names = c("wave 1", "wave 2", "wave 3"))
+```
+
+```{r}
+# similar to the code above, for friendship, network is already binary
+n1 <- graph.adjacency(variables_1200$friendship[[1]],mode = "directed")
+n2 <- graph.adjacency(variables_1300$friendship[[1]],mode = "directed")
+n3 <- graph.adjacency(variables_1500$friendship[[1]],mode = 'directed')
+n4 <- graph.adjacency(variables_3100$friendship[[1]],mode = 'directed')
+n5 <- graph.adjacency(variables_3200$friendship[[1]],mode = 'directed')
+n6 <- graph.adjacency(variables_3300$friendship[[1]],mode = 'directed')
+n7 <- graph.adjacency(variables_3400$friendship[[1]],mode = 'directed')
+n8 <- graph.adjacency(variables_6200$friendship[[1]],mode = 'directed')
+n9 <- graph.adjacency(variables_7100$friendship[[1]],mode = 'directed')
+
+indep_w1<-indep_desc(n1,n2,n3,n4,n5,n6,n7,n8,n9)
+
+n1 <- graph.adjacency(variables_1200$friendship[[2]],mode = "directed")
+n2 <- graph.adjacency(variables_1300$friendship[[2]],mode = "directed")
+n3 <- graph.adjacency(variables_1500$friendship[[2]],mode = 'directed')
+n4 <- graph.adjacency(variables_3100$friendship[[2]],mode = 'directed')
+n5 <- graph.adjacency(variables_3200$friendship[[2]],mode = 'directed')
+n6 <- graph.adjacency(variables_3300$friendship[[2]],mode = 'directed')
+n7 <- graph.adjacency(variables_3400$friendship[[2]],mode = 'directed')
+n8 <- graph.adjacency(variables_6200$friendship[[2]],mode = 'directed')
+n9 <- graph.adjacency(variables_7100$friendship[[2]],mode = 'directed')
+
+indep_w2<-indep_desc(n1,n2,n3,n4,n5,n6,n7,n8,n9)
+
+n1 <- graph.adjacency(variables_1200$friendship[[3]],mode = "directed")
+n2 <- graph.adjacency(variables_1300$friendship[[3]],mode = "directed")
+n3 <- graph.adjacency(variables_1500$friendship[[3]],mode = 'directed')
+n4 <- graph.adjacency(variables_3100$friendship[[3]],mode = 'directed')
+n5 <- graph.adjacency(variables_3200$friendship[[3]],mode = 'directed')
+n6 <- graph.adjacency(variables_3300$friendship[[3]],mode = 'directed')
+n7 <- graph.adjacency(variables_3400$friendship[[3]],mode = 'directed')
+n8 <- graph.adjacency(variables_6200$friendship[[3]],mode = 'directed')
+n9 <- graph.adjacency(variables_7100$friendship[[3]],mode = 'directed')
+
+indep_w3<-indep_desc(n1,n2,n3,n4,n5,n6,n7,n8,n9)
+
+w1 <- sapply(indep_w1,function(x){round(mean(x),digits=3)})
+w2 <- sapply(indep_w2,function(x){round(mean(x),digits=3)})
+w3 <- sapply(indep_w3,function(x){round(mean(x),digits=3)})
+
+mean <- as_tibble(rbind(w1,w2,w3))
+
+w1 <- sapply(indep_w1,function(x){round(sd(x),digits=3)})
+w2 <- sapply(indep_w2,function(x){round(sd(x),digits=3)})
+w3 <- sapply(indep_w3,function(x){round(sd(x),digits=3)})
+
+sd<- as_tibble(rbind(w1,w2,w3))
+
+
+Friendship <- data.frame(
+  av.dens = paste0(mean$dens," (",sd$dens,")"),
+  av.recip = paste0(mean$recip," (",sd$recip,")"),
+  av.trans = paste0(mean$trans," (",sd$trans,")"),
+  av.M.degr = paste0(mean$mean.in," (",sd$mean.in,")"),
+ 
+  
+  row.names = c("wave 1", "wave 2", "wave 3"))
+```
+
+```{r}
+# One table for all the descriptives of the networks
+waves <- (rep(c("wave 1", "wave 2", "wave 3"),6))
+indep.nets <-as_tibble(rbind(Rel.aggr,Antisocial,Social,Gossip,Antipathy, Friendship))
+indep.nets <-as_tibble(cbind(waves, indep.nets))
+```
+
+```{r}
+# change column names
+colnames(indep.nets)<- c(" ", "av.dens (SD)","av.recip (SD)", "av.trans (SD)", "av.M.degr (SD)")
+
+# save table for output
+kbl(indep.nets, caption = "Table 5: Descriptives Independent Networks", booktabs = T) %>% kable_styling(font_size = 12, htmltable_class = "lightable-classic", html_font = "Times New Roman",
+full_width = F) %>%  pack_rows(group_label = "Relational aggression", 1,3) %>% pack_rows("Perceived anti-social behavior", 4,6) %>% pack_rows("Perceived social behavior", 7,9) %>% 
+pack_rows("Gossip", 10,12) %>% pack_rows("Antipathy",13,15)  %>% pack_rows("Friendship",16,18) %>% footnote(general="Source: RECENS(2016), N = 243\nMean values and standard deviations of the mean of 9 classroom networks per wave\n All networks similar scale without weighted ties\nav.dens = average network density, av.recip = average network reciprocity, av.trans = average network transitivity, av.M.in = Average of mean degrees") %>% save_kable("indepnetwork_descr2.png",bs_theme = "flatly")
+```
+
+### Popularity norms
+
+```{r}
+# select variables for popularity norms from wave 3
+popularnorms <- sample_data %>% select(idcode,gender_2,pohumo_3,pofigh_3,ponerd_3,pogoss_3,pochar_3,poclev_3,pogood_3,postuc_3,posmug_3,potepi_3,poenem_3,pobeau_3,potrus_3,pojust_3,polfri_3,popfri_3) 
+
+# rename
+popularnorms <- popularnorms %>% 
+  rename(humor = pohumo_3,
+         fights = pofigh_3,
+         "eager beaver" = ponerd_3,
+         gossipy = pogoss_3,
+         giving = pochar_3,
+         clever = poclev_3,
+         "good grades"= pogood_3,
+         flatterer = postuc_3,
+         stuck_up = posmug_3,
+         "teachers pick on them" = potepi_3,
+         "lots of enemies" = poenem_3,
+         beauty = pobeau_3,
+         discreet = potrus_3,
+         just = pojust_3,
+         "many friends" = polfri_3,
+         "popular friends" = popfri_3)
+
+popularnorms[is.na(popularnorms)]= 0 # NA's to 0
+pn_pivot <- pivot_longer(popularnorms,humor:"popular friends") # pivot table
+```
+
+```{r}
+# group by popularity norm name, taking the sum values
+pn_pivot %>% group_by(name) %>% summarize(sum(value)) -> pn2
+pn2 <- pn2 %>%  rename("value" = "sum(value)")
+N<- nrow(popularnorms) # noting N of the sample
+
+# barplot in ggplot
+ggplot(data = pn2, aes(x = value, y = fct_rev( fct_reorder(name,value))))+
+  geom_col(width=0.5)+
+  theme_light()+ theme(legend.position = "none", text= element_text(family="Times New Roman"))+
+  labs(title=paste0("Figure 3: Popularity Norms in Sample Data Class "), caption=paste0("Popularity norms reported by students in wave 3 (out of 4 waves)\nNegative values indicating perceived negative impact on popularity in the classroom\nSource: RECENS (2016), N = ",N), x= "Helps Popularity?", y = "")
+
+# save for output
+ggsave("popnorms.png")
+```

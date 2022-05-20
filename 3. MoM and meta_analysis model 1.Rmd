@@ -1,0 +1,533 @@
+---
+title: "'The Naked Emperor'- thesis syntax 3: Analysis Model 1 - SAOM MoM and meta-analysis"
+subtitle: "Lisanne van Veen"
+output: pdf_document
+---
+This script Runs the first model (structural effects + gender effects) in R for Method of Moments for each class, followed by meta-analysis of the results.
+
+Algorithmic parameters are adapted to each classroom for reaching convergence.
+After a first round, effects with high standard errors are set to fixed values for more reliable estimates for other model effects.
+Goodness of Fit is assessed for indegrees, outdegrees, triadic closure and geodesic distribution.
+
+### preliminaries
+```{r}
+knitr::opts_chunk$set(eval=F) #prevent evaluation while knitting pdf to show syntax
+```
+
+```{r}
+library(RSiena)
+library(tidyverse)
+library(kableExtra)
+```
+
+### functions
+
+```{r}
+makeData <- function(i){ # setting: default, dolby = F
+
+  load(paste0('netDynamics',i,'.Rdata')) # load data
+  dataset <- netDynamics
+  effects <- getEffects(dataset) # get effects
+  
+  # structural effects
+  effects <- includeEffects(effects, transTrip)
+  effects <- includeEffects(effects, inPopSqrt, outActSqrt, outPopSqrt)
+  
+  # gender effects
+  effects <- includeEffects(effects, name = "emperors", altX, egoX, sameX, interaction1= "Gender")
+  
+  # 2 algorithms:
+  # for the first run, and repeated runs if necessary (after max convergence > 0.5)
+  # n3=5000 for publication
+  
+  algo0 <- sienaAlgorithmCreate(projname = paste('model1', i, sep=""), n3=5000, dolby = F, seed=567)
+  
+  # for other repeated runs if necessary (after 0.2 < max conv. < 0.5)
+   # n2start 2.52*(p+7) where p is number of parameters-conditional rate functions (Manual, p.79)
+  # high value is double
+  p <- length(effects$effectName)
+  n2s <- ((2.52)*(p+7))*2
+  n2s <- round(n2s)
+  
+  algo1 <- sienaAlgorithmCreate(projname = paste('model1', i, sep=""),
+                                nsub=1, n2start = n2s, n3=5000, dolby = F,seed=5678)
+  
+  # output is a list including the data, the effects, and two algorithms
+  list(Data=dataset, Eff=effects , algo0=algo0, algo1=algo1)
+}
+```
+
+```{r}
+# Utility function: variation of a siena07 function,
+# For repeated runs of siena07 until convergence is reached or deemed unfeasible
+siena07ToConvergence <- function(alg0, alg1, dat, eff, ans0=NULL, ...){
+  numr <- 0 # count number of runs
+  ans <- siena07(x = alg0, data=dat, effects=eff, prevAns=ans0, returnDeps= T,...) # first run
+  
+  repeat { # code will be repeated until certain conditions are satisfied
+    
+    save(ans, file=paste("ans1",numr,".RData",sep="")) # save first run results as R object, to be safe
+    numr <- numr+1 # count number of repeated runs
+    tm <- ans$tconv.max # maximum convergence indicator
+    cat(numr, tm,"\n") # report progress
+    
+    # Stop if:
+    if (tm < 0.20) {break} # run is sufficiently successful
+    if (tm > 10) {break}   # there is no hope for good estimates
+    if (numr > 10) {break} # it takes too many runs for convergence
+    
+    # Continue if
+    if (tm > 0.5){ # max convergence is above 0.5
+      ans <- siena07(alg0, data=dat, effects=eff, prevAns=ans, returnDeps= T, ...) # first algorithmic options, taking the output of the previous run
+    } else { # 0.2 < max conv < 0.5
+      ans <- siena07(alg1, data=dat, effects=eff, prevAns=ans, returnDeps= T, ...) # second algorithmic option, taking output of previous
+    }
+  }
+  if (tm > 0.25) # when stopped, and not converged:
+  {
+    cat(    "Warning: convergence inadequate.\n") # print warning
+  }
+  ans # final siena07 results
+}
+```
+
+```{r}
+analyseData <- function(i){
+  cat(' class ',i,'* ') # show progress, which classroom
+  sink('temp.txt') # unclutter screen
+  mod <- makeData(i) # list with Sienadata, effects, 2 algorithms
+  
+  sink() # unclutter screen
+  ModEstimates <- siena07ToConvergence(mod$algo0, mod$algo1,
+                                      dat = mod$Data, eff = mod$Eff)
+ 
+   # add a group number to the object:
+  ModEstimates$groupNumber <- i
+  ModEstimates # results
+}
+```
+
+## SAOM - 1st round
+```{r}
+results1_1300 <- analyseData(1300) 
+results1_1500 <- analyseData(1500) 
+results1_3300 <- analyseData(3300) 
+results1_6200 <- analyseData(6200)
+
+# convergence for 4 classrooms
+```
+
+## SAOM - 2nd try
+```{r}
+# adapt the makeData function
+makeData <- function(i){ # change: dolby = T, firstg = 0.02
+  load(paste0('netDynamics',i,'.Rdata'))
+  dataset <- netDynamics
+  effects <- getEffects(dataset)
+  effects <- includeEffects(effects, transTrip)
+  effects <- includeEffects(effects, inPopSqrt, outActSqrt, outPopSqrt)
+  effects <- includeEffects(effects, name = "emperors", altX, egoX, sameX, interaction1= "Gender")
+  algo0 <- sienaAlgorithmCreate(projname = paste('model1', i, sep=""), n3=5000, dolby = T, seed=567, firstg = 0.02)
+  p <- length(effects$effectName)
+  n2s <- ((2.52)*(p+7))*2
+  n2s <- round(n2s)
+  algo1 <- sienaAlgorithmCreate(projname = paste('model1', i, sep=""),
+                                nsub=1, n2start = n2s, n3=5000, dolby = T,seed=5678, firstg = 0.02 )
+  list(Data=dataset, Eff=effects , algo0=algo0, algo1=algo1)
+}
+```
+
+```{r}
+results1_3100 <- analyseData(3100)
+```
+
+```{r}
+# adapt the makeData function
+makeData <- function(i){ # cond = F (unconditional estimation)
+  load(paste0('netDynamics',i,'.Rdata'))
+  dataset <- netDynamics
+  effects <- getEffects(dataset)
+  effects <- includeEffects(effects, transTrip)
+  effects <- includeEffects(effects, inPopSqrt, outActSqrt, outPopSqrt)
+  effects <- includeEffects(effects, name = "emperors", altX, egoX, sameX, interaction1= "Gender")
+  algo0 <- sienaAlgorithmCreate(projname = paste('model1', i, sep=""), n3=5000, dolby = T, seed=567, cond=F)
+  p <- length(effects$effectName)
+  n2s <- ((2.52)*(p+7))*2
+  n2s <- round(n2s)
+  algo1 <- sienaAlgorithmCreate(projname = paste('model1', i, sep=""),
+                                nsub=1, n2start = n2s, n3=5000, dolby = T,seed=5678,cond=F )
+  list(Data=dataset, Eff=effects , algo0=algo0, algo1=algo1)
+}
+```
+
+```{r}
+results1_3200 <- analyseData(3200) 
+```
+
+```{r}
+# adapt the makeData function
+makeData <- function(i){ #  fix transitive triplets
+  load(paste0('netDynamics',i,'.Rdata'))
+  dataset <- netDynamics
+  effects <- getEffects(dataset)
+  effects <- includeEffects(effects, transTrip, fix = T, test = T)
+  effects <- includeEffects(effects, inPopSqrt, outActSqrt)
+   effects <- includeEffects(effects, outPopSqrt)
+  effects <- includeEffects(effects, name = "emperors", altX, egoX, sameX, interaction1= "Gender")
+  algo0 <- sienaAlgorithmCreate(projname = paste('model1', i, sep=""), n3=5000, dolby = F, seed=567)
+  p <- length(effects$effectName)
+  n2s <- ((2.52)*(p+7))*2
+  n2s <- round(n2s)
+  algo1 <- sienaAlgorithmCreate(projname = paste('model1', i, sep=""),
+                                nsub=1, n2start = n2s, n3=5000, dolby = F, seed=5678)
+  list(Data=dataset, Eff=effects , algo0=algo0, algo1=algo1)
+}
+```
+
+```{r}
+results1_3400 <- analyseData(3400)
+```
+
+```{r}
+# save results in one list
+resultslist1 <- list(results1_1300,results1_1500,results1_3100,results1_3200,results1_3300,results1_3400,results1_6200)
+save(resultslist1,file='resultslist1.Rdata')
+```
+
+```{r}
+# list with results from syntax above
+#load("~/Desktop/Master Computational Social Science/NETWORK PAPER/Naked Emperors/resultslist1.Rdata")
+```
+
+## convergence check
+
+```{r}
+# Check model convergence:
+resultslist <- resultslist1
+hist(sapply(resultslist, function(x){x$tconv.max}), xlab='tconv.max', main='')
+max(sapply(resultslist, function(x){x$tconv.max})) 
+```
+
+## standard errors
+```{r}
+(groups <- sapply(resultslist, function(x){x$groupNumber})) # models for which classrooms?
+sapply(resultslist, function(x){length(x$theta)}) # same length of parameters?
+sapply(resultslist, function(x){x$effects$effectName}) # name and order of effects per class?
+```
+
+```{r}
+# Extract parameter estimates and standard errors
+resultslistb <- resultslist # make copy
+resultslistb[[4]]$theta<- resultslistb[[4]]$theta[3:11] # deselect rate effects for class with unconditional estimation
+resultslistb[[4]]$se<- resultslistb[[4]]$se[3:11]
+parameters <-  sapply(resultslistb, function(x){x$theta}) # get estimates
+standers <- sapply(resultslistb, function(x){x$se}) # get standard errors
+eff.names <-
+    resultslist[[1]]$effects[resultslist[[1]]$effects$include,'effectName']
+rownames(parameters) <- eff.names
+rownames(standers) <- eff.names
+colnames(parameters) <- sapply(resultslist, function(x){x$groupNumber})
+colnames(standers) <- sapply(resultslist, function(x){x$groupNumber})
+# print rounded to 2 decimals so that on a wide console everything can fit.
+#round(parameters,2)
+round(standers,2)
+```
+
+large SE: Rule of thumb > 5 (I change larger than 10) but large SE is normal for covariates with little variance (<0.1)
+large SE's:
+density - 3300: 18.10
+reciprocity - 1300, 12.46 and 3100, 35.56, 6200: 13.72
+
+```{r}
+# save
+model1_par1 <- round(parameters,2)
+model1_se1 <- round(standers,2)
+save(model1_par1, file="model1_par1.Rdata")
+save(model1_se1, file="model1_se1.Rdata")
+```
+
+```{r}
+# check small variance? #
+(resultslist1[[5]]$sd)^2 <0.1
+(resultslist1[[1]]$sd)^2 <0.1
+(resultslist1[[3]]$sd)^2 <0.1 # yes for reciprocity 3100, does not need to be fixed
+(resultslist1[[7]]$sd)^2 <0.1
+```
+
+## fix parameters that had large SE's
+
+```{r}
+# fix density for 3300
+makeData <- function(i){ # setting: default, dolby = F
+  load(paste0('netDynamics',i,'.Rdata'))
+  dataset <- netDynamics
+  effects <- getEffects(dataset)
+  effects <- includeEffects(effects, density, fix = T, test=T) # fix
+  effects <- includeEffects(effects, transTrip)
+  effects <- includeEffects(effects, inPopSqrt, outActSqrt, outPopSqrt)
+  effects <- includeEffects(effects, name = "emperors", altX, egoX, sameX, interaction1= "Gender")
+  algo0 <- sienaAlgorithmCreate(projname = paste('model1', i, sep=""), n3=5000, dolby = T, seed=567)
+  p <- length(effects$effectName)
+  n2s <- ((2.52)*(p+7))*2
+  n2s <- round(n2s)
+  algo1 <- sienaAlgorithmCreate(projname = paste('model1', i, sep=""), nsub=1, n2start = n2s, n3=5000, dolby = F,seed=5678)
+  list(Data=dataset, Eff=effects , algo0=algo0, algo1=algo1)
+}
+
+results1_3300 <- analyseData(3300)
+```
+
+
+```{r}
+# fix reciprocity for 3100
+makeData <- function(i){ # setting: default, dolby = T
+  load(paste0('netDynamics',i,'.Rdata'))
+  dataset <- netDynamics
+  effects <- getEffects(dataset)
+  effects <- includeEffects(effects, recip, fix = T, test=T) # fix
+  effects <- includeEffects(effects, transTrip)
+  effects <- includeEffects(effects, inPopSqrt, outActSqrt, outPopSqrt)
+  effects <- includeEffects(effects, name = "emperors", altX, egoX, sameX, interaction1= "Gender")
+  algo0 <- sienaAlgorithmCreate(projname = paste('model1', i, sep=""), n3=5000, dolby = T, seed=567)
+  p <- length(effects$effectName)
+  n2s <- ((2.52)*(p+7))*2
+  n2s <- round(n2s)
+  algo1 <- sienaAlgorithmCreate(projname = paste('model1', i, sep=""), nsub=1, n2start = n2s, n3=5000, dolby = F,seed=5678)
+  list(Data=dataset, Eff=effects , algo0=algo0, algo1=algo1)
+}
+results1_3100 <- analyseData(3100)
+```
+
+```{r}
+# fix reciprocity for 6200
+makeData <- function(i){ # setting: unconditional
+  load(paste0('netDynamics',i,'.Rdata'))
+  dataset <- netDynamics
+  effects <- getEffects(dataset)
+  effects <- includeEffects(effects, recip, fix = T, test=T) # fix
+  effects <- includeEffects(effects, transTrip)
+  effects <- includeEffects(effects, inPopSqrt, outActSqrt, outPopSqrt)
+  effects <- includeEffects(effects, name = "emperors", altX, egoX, sameX, interaction1= "Gender")
+  algo0 <- sienaAlgorithmCreate(projname = paste('model1', i, sep=""), n3=5000, dolby = T, seed=567, firstg = 0.02)
+  p <- length(effects$effectName)
+  n2s <- ((2.52)*(p+7))*2
+  n2s <- round(n2s)
+  algo1 <- sienaAlgorithmCreate(projname = paste('model1', i, sep=""), nsub=1, n2start = n2s, n3=5000, dolby = T,seed=5678, firstg=0.02)
+  list(Data=dataset, Eff=effects , algo0=algo0, algo1=algo1)
+}
+results1_6200 <- analyseData(6200)
+```
+
+```{r}
+# add new simulation results to the list
+(groups <- sapply(resultslist, function(x){x$groupNumber})) # models for which classrooms?
+resultslist1F <- resultslist1
+resultslist1F[[1]] <- results1_1300
+resultslist1F[[5]] <- results1_3300
+resultslist1F[[7]] <- results1_6200
+save(resultslist1F,file='resultslist1F.Rdata')
+```
+
+```{r}
+# load results of the syntax above
+load("~/Desktop/Master Computational Social Science/NETWORK PAPER/Naked Emperors/resultslist1F.Rdata")
+```
+
+## Convergence check 2
+
+```{r}
+# Check convergence:
+resultslist <- resultslist1F
+hist(sapply(resultslist, function(x){x$tconv.max}), xlab='tconv.max', main='')
+max(sapply(resultslist, function(x){x$tconv.max})) 
+```
+## control standard errors 2
+
+```{r}
+# Extract parameter estimates and standard errors
+resultslistb <- resultslist # make copy
+resultslistb[[4]]$theta<- resultslistb[[4]]$theta[3:11] # deselect rate effects for class 4
+resultslistb[[4]]$se<- resultslistb[[4]]$se[3:11]
+parameters <-  sapply(resultslistb, function(x){x$theta})
+standers <- sapply(resultslistb, function(x){x$se})
+eff.names <-
+    resultslist[[1]]$effects[resultslist[[1]]$effects$include,'effectName']
+rownames(parameters) <- eff.names
+rownames(standers) <- eff.names
+colnames(parameters) <- sapply(resultslist, function(x){x$groupNumber})
+colnames(standers) <- sapply(resultslist, function(x){x$groupNumber})
+# print rounded to 2 decimals so that on a wide console everything can fit.
+#round(parameters,2)
+round(standers,2)
+```
+
+```{r}
+# save
+model1_par1F <- round(parameters,2)
+model1_se1F <- round(standers,2)
+save(model1_par1F, file="model1_par1F.Rdata")
+save(model1_se1F, file="model1_se1F.Rdata")
+```
+
+## Goodness of fit
+```{r, message = FALSE}
+# make function for Geodesic distribution
+GeodesicDistribution <- function(i, data, sims, period, groupName,
+	varName, levls = c(1:5,Inf), cumulative= TRUE, ...) {
+    x <- networkExtraction(i, data, sims, period, groupName, varName)
+    require(sna)
+    a <- sna::geodist(symmetrize(x))$gdist
+    if (cumulative)
+    {
+        gdi <- sapply(levls, function(i){ sum(a <= i) })
+    }
+    else
+    {
+        gdi <- sapply(levls, function(i){ sum(a == i) })
+    }
+    names(gdi) <- as.character(levls)
+    return(gdi)
+}
+```  
+
+```{r, message=FALSE}
+# make a list of graphs and of the p-values of the gof estimatiioon
+GOF <- list()
+GOFP <- list()
+for(i in 1:length(resultslist)){
+  
+print(i) # check progress
+  
+gof1.indegrees <- sienaGOF(resultslist[[i]],IndegreeDistribution,
+                           varName = "emperors",cumulative = FALSE)
+gof1.outdegrees <- sienaGOF(resultslist[[i]],OutdegreeDistribution,
+	                            varName = "emperors",cumulative = FALSE)
+gof1.triads <- sienaGOF(resultslist[[i]],TriadCensus,varName = "emperors")
+gof1.geodesic <- sienaGOF(resultslist[[i]],GeodesicDistribution,
+                           varName = "emperors",cumulative = FALSE)
+# save p-values
+P <- c(gof1.indegrees$Joint$p,
+       gof1.outdegrees$Joint$p,
+       gof1.triads$Joint$p,
+       gof1.geodesic$Joint$p)
+
+GOFP[[i]] <- P
+
+goflist <- list(gof1.indegrees, gof1.outdegrees, gof1.triads, gof1.geodesic)
+GOF[[i]] <- goflist
+}
+```
+
+```{r}
+# save
+save(GOFP,file='GOFP1F.Rdata')
+save(GOF,file='GOF1F.Rdata')
+```
+
+```{r}
+# goodness of fit? control p is not <0.05
+GOFP # fit outdegrees of 1300,3100,3300,6200 not great, but nowhere 0.
+```
+
+## table the results: estimates and significance
+
+```{r, include = F}
+results.table1 <- list()
+for(i in 1:length(resultslist)){
+
+parameter <- resultslist[[i]]$effects$effectName
+type <- resultslist[[i]]$effects$type
+estimate <- resultslist[[i]]$theta
+st.error <- sqrt(diag(resultslist[[i]]$covtheta))
+normal.variate <- estimate/st.error
+p.value.2sided <- 2*pnorm(abs(normal.variate),lower.tail = FALSE)
+
+results.table1[[i]] <- data.frame(parameter,
+	                  estimate = round(estimate,3),
+	                  st.error = round(st.error,3),
+	                  normal.variate = round(normal.variate,2),
+	                  p.value = round(p.value.2sided,4))
+}
+```
+
+```{r}
+# save the results
+save(results.table1, file="results.table1.Rdata")
+```
+## meta-analysis
+```{r}
+# meta analysis for the results of the 7 classrooms
+meta1 <-siena08(resultslist, projname= 'meta1', maxit = 200)
+save(meta1, file='meta1.Rdata')
+```
+
+```{r}
+#load('meta1.Rdata')
+meta <- meta1
+```
+
+```{r}
+# aree the SE's RANDOM?
+plot(meta, which = 1:length(meta$theta),
+                         useBound=TRUE, layout = c(2,2))
+```
+
+```{r}
+# fishertest
+neff <- sum(resultslist[[1]]$effects$include)
+# Construct the names for the effects:
+efnames <- names(meta)[1:neff]
+
+Fishers <- t(sapply(1:neff,
+                    function(i){c(meta[[i]]$cjplus, meta[[i]]$cjminus,
+                                  meta[[i]]$cjplusp, meta[[i]]$cjminusp,
+                                  2*meta[[i]]$n1 )}))
+rownames(Fishers) <- efnames
+colnames(Fishers) <- c('Fplus', 'Fminus', 'pplus', 'pminus', 'df')
+df_Fishers<- as_tibble(round(Fishers,3),rownames = NA)
+
+df_Fishersint <- df_Fishers %>% mutate('pos_sig'= ifelse(pplus <= 0.025, "yes","no"), 'neg_sig' = ifelse(pminus <= 0.025, "yes","no"))
+rownames(df_Fishersint) <- efnames
+kbl(df_Fishersint) %>% kable_styling()
+```
+
+```{r}
+# meta-analysis of the mean
+parameters.08 <- t(sapply(1:neff, function(i){c(meta[[i]]$mu.ml,
+                                                meta[[i]]$mu.ml.se, meta[[i]]$mu.confint,
+                                                meta[[i]]$sigma.ml, meta[[i]]$sigma.confint,
+                                                meta[[i]]$n1)}))
+
+colnames(parameters.08) <- c('mu-hat', 'mu-se',
+                             'mu-min', 'mu-plus', 'alpha_mu',
+                             'sigma-hat', 'sigma-min', 'sigma-plus', 'alpha_sigma', 'N')
+```
+
+
+```{r}
+# save 
+save(Fishers, file = 'Fishers1.Rdata')
+save(parameters.08,file = 'Meta.Par1.Rdata')
+```
+
+```{r}
+# Extract heterogeneity tests from siena08 output;
+# these are called Q in Snijders & Baerveldt (2003):
+hetero.08 <- t(sapply(1:neff, function(i){c(meta[[i]]$Qstat,
+                                            meta[[i]]$n1-1, meta[[i]]$pttilde)}))
+colnames(hetero.08) <- c('Q', 'df', 'pQ')
+# These are: Q statistic; degrees of freedom; p-value
+rownames(hetero.08) <- efnames
+round(hetero.08, 3)
+
+# Extract overall tests;
+Overalls.08 <- t(sapply(1:neff, function(i){c(meta[[i]]$Tsq,
+                                              meta[[i]]$n1-1, meta[[i]]$pTsq)}))
+colnames(Overalls.08) <- c('T^2', 'df', 'pT^2')
+
+# These are: Q statistic; degrees of freedom; p-value
+rownames(Overalls.08) <- efnames
+round(Overalls.08, 3)
+
+save(Overalls.08, file='overalls08.1.Rdata')
+```
