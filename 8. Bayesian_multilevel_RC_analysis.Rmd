@@ -1,0 +1,288 @@
+---
+title: "'The Naked Emperor'- thesis syntax 8: Analysis Full model - Bayesian multilevel Random Coefficients"
+subtitle: "Lisanne van Veen"
+output: pdf_document
+---
+
+This script shows the analysis by Bayesian multilevel random coefficients with RSiena, as well as the generating of the plots. 
+
+Plots used functions sourced from the relevant script from the RSiena website, as shown in syntax 9. 
+
+## preliminaries
+
+```{r}
+knitr::opts_chunk$set(eval=F) #prevent evaluation while knitting pdf to show syntax
+```
+
+```{r}
+# load libraries
+library(RSiena)
+library(multiSiena)
+library(parallel)
+```
+
+## preperation for heterogeneity test
+```{r}
+# select groups for analysis
+groups <- c(1300,1500,3100,3200,3300,3400,6200,7100)
+
+# create list with data objects per group
+l <- paste0('netDynamics',groups,'.Rdata')
+objectlist <- list()
+t <- 0
+for(i in l){
+  t <- t+1
+  load(i)
+  objectlist[[t]] <- netDynamics
+}
+
+# create multigroup object
+(multigroup <- sienaGroupCreate(objectlist))
+
+# load multigroup siena Fit object
+#load("multigroup_SienaFit.Rdata")
+GEff <- getEffects(multigroup)
+# effectsDocumentation(GEff)
+
+# Model specification for multilevel MoM to use for timetest, without interaction effects:
+# structural effects
+  GEff<- includeEffects(GEff, transTrip)
+  GEff<- includeEffects(GEff, inPopSqrt, outActSqrt, outPopSqrt)
+  
+# gender effects
+  GEff<- includeEffects(GEff, name = "emperors", altX, egoX, sameX, interaction1 = "Gender")
+  
+  # INTIMIDATION mechanism
+  GEff<- includeEffects(GEff, name = "emperors",X, interaction1="relational")
+  GEff<- includeEffects(GEff, name = "emperors",X, interaction1="antisocial") 
+  GEff<- includeEffects(GEff, name = "emperors", altX,egoX,simX,interaction1="nfriends") 
+  GEff<- includeEffects(GEff, name = "emperors",X, interaction1="social")
+
+  # INFORMATION mechanism
+  GEff<- includeEffects(GEff, name = "emperors",X, interaction1="gossiptarget")
+  GEff<- includeEffects(GEff, name = "emperors", WXX, XWX, interaction1="friends") 
+  
+  # CONTROL: antipathy
+  GEff<- includeEffects(GEff, name = "emperors", X, interaction1 = "antipathy")
+```
+
+```{r}
+# create algorithm
+Galgo <- sienaAlgorithmCreate(projname = 'GCBG', seed = 5678, cond=T)
+
+# detect for use of multiple cores during run
+n.clus <- detectCores() - 1 #7
+
+# run multilevel MoM, for timetest
+(Gans.timetest <- siena07(Galgo, data=multigroup, effects=GEff,
+            useCluster=TRUE, nbrNodes=n.clus))
+
+save(Gans.timetest, GEff, file='Gans.timetest.RData')
+
+# siena timetest for heterogeneity of parameters
+# to help to decide which parameters should be random
+# look at non-significant effects and high chi^2 values of effect-wise joint significance tests
+timetest <- sienaTimeTest(Gans.timetest)
+save(timetest, file = 'timetest.Rdata')
+summary(timetest)
+# high chi-squared ~ >60 for
+# density, indegree pop(sqrt), outdegree pop (sqrt), outdegree act(sqrt), closure of friends WXX XWX, nfriends ego and similarity, all gender effects, antipathy.
+```
+
+## modeling for BMRC
+
+```{r}
+# include interactions in model specification for multigroup analysis (first siena07, then Bayesian estimation)
+  GEff<- includeInteraction(GEff, name = "emperors",altX,X, interaction1 = c("nfriends","relational"))
+  GEff<- includeInteraction(GEff, name = "emperors",altX,X, interaction1 = c("nfriends","antisocial"))
+  GEff<- includeInteraction(GEff, name = "emperors",X,X, interaction1=c("relational", "social"))
+  GEff<- includeInteraction(GEff, name = "emperors", X, X, interaction1 = c("antisocial", "social"))
+
+# specify random effects (not sign, or chi-squared ~> 60) (density is default)
+  GEff<- setEffect(GEff, inPopSqrt, random = TRUE)
+  GEff<- setEffect(GEff, outActSqrt, random = TRUE)
+  GEff<- setEffect(GEff, name = "emperors", altX,interaction1 = "Gender", random = TRUE)
+  GEff<- setEffect(GEff, name = "emperors", egoX,interaction1 = "Gender", random = TRUE) 
+  GEff<- setEffect(GEff, name = "emperors", sameX,interaction1 = "Gender", random = TRUE) 
+  GEff<- setEffect(GEff, name = "emperors", egoX,interaction1="nfriends", random = TRUE) 
+  GEff<- setEffect(GEff, name = "emperors", XWX, interaction1="friends", random = TRUE) 
+
+# show effects list
+print(GEff, includeRandoms=TRUE, dropRates=F)
+```
+
+## prior specifications
+
+```{r}
+#  define prior Mu and variance
+GEff[(GEff$randomEffects | (GEff$basicRate & (GEff$group==1) )) & GEff$include, ]
+
+# recommended: negative value for density, other means based on prior knowledge, covariates for research question 0, homophily controls 0.3-0.5
+Mu <- rep(0,10)
+Mu[3] <- -2  #  outdegree density
+Mu[4] <- 0.2 #  indegree pop sqrt
+Mu[5] <- 0.1 # outdegree act sqrt
+Mu[10]<- 0.3 #  same gender
+
+
+# prior variance
+Sig <- matrix(0,10,10)
+diag(Sig) <- 0.01 # reflects differences that may exist between different groups
+```
+
+```{r}
+# Algorithm for prevAns SienaBayes
+# Ripley (2021) p.119 -> MoM, nsub=2, firstg =< 0.05, cond = F (see help page)
+# check for convergence and high estimates of non-rate parameters
+Galg1 <- sienaAlgorithmCreate(projname = 'GCBG1', seed = 5678, n3 = 3000, nsub = 2, firstg=0.05, cond = F, dolby = T)
+
+# Run twice
+(Gans <- siena07(Galg1, data=multigroup, effects=GEff, useCluster=TRUE, nbrNodes=n.clus)) 
+(Gans <- siena07(Galg1, data=multigroup, effects=GEff, useCluster=TRUE, nbrNodes=n.clus, prevAns = Gans)) 
+
+save(Gans, file= 'Gans.Bayes.Rdata')
+# load('Gans.Bayes.Rdata')
+
+# non-rate parameters high? NO
+# convergence for all non-rate parameters, however max conv ratio remains quite high: 0.86
+Gans
+```
+
+## test run
+```{r}
+# algorithm for SienaBayes
+GroupsAlgo <- sienaAlgorithmCreate(projname = 'Bayes_5', seed = 5678)
+
+# initial test run
+tryrun <- sienaBayes(data= multigroup, effects = GEff, algo = GroupsAlgo,
+                           priorMu = Mu, priorSigma = Sig,
+                           priorKappa = 0.01,
+                           prevAns = Gans,
+                           nwarm=5, nmain=10, nrunMHBatches=5, nImproveMH=20,
+                           nbrNodes=n.clus, silentstart=FALSE, initgainGroupwise = 0.001)
+
+save(tryrun, 'sBayes_test.Rdata')
+#load('sBayes_test.Rdata')
+summary(tryrun)
+# high rate parameters for some groups? change intigainGroupwise
+```
+
+## BMRC
+```{r}
+# Complete Run
+ Bayes5_2 <- sienaBayes(data= multigroup, effects = GEff, algo = GroupsAlgo,
+                           initgainGlobal=0.1, initgainGroupwise = 0.001,
+                           priorMu = Mu, priorSigma = Sig,
+                           priorKappa = 0.01,
+                           prevAns = Gans,
+                           nwarm=500, nmain=2000, nrunMHBatches=40, nImproveMH=100,
+                           nbrNodes=7, silentstart=FALSE) 
+
+ save(Bayes5_2, file="groupBayes5_02.RData")
+# load("groupBayes5_02.RData")
+summary(Bayes5_2)
+# check non stationarity:
+NonRateTracePlots(Bayes5_2)
+# no non-stationarity, longer run necesarry
+```
+
+```{r}
+# Prolonging
+ Bayes5_2ec <- sienaBayes(algo=GroupsAlgo, data = multigroup, effects = GEff,
+                         initgainGlobal=0.1, initgainGroupwise = 0.001,
+                         priorMu = Mu, priorSigma = Sig,
+                         priorKappa = 0.01, 
+                         prevBayes = Bayes5_2, 
+                         nwarm = 500, nmain=2000, nrunMHBatches=40, nImproveMH=100,
+                         nbrNodes=7, silentstart = FALSE)
+
+save(Bayes5_2ec, file = "groupBayes5_2ec.RData")
+```
+
+```{r}
+#combine
+groupsBB <- glueBayes(Bayes5_2, Bayes5_2ec)
+```
+
+# Plotting and results
+## traceplots
+
+```{r}
+# Make first plots
+NonRateTracePlots(groupsBB, setOfEffects = 3:8, title = "NRTP_structEF")
+NonRateTracePlots(groupsBB, setOfEffects = c(9:11,16:18,22:25), title = "NRTP_intim")
+NonRateTracePlots(groupsBB, setOfEffects = c(12:14,15,19:21), title = "NRTP_inf_gen_dis")
+RateTracePlots(groupsBB)
+# non stationarity?
+# starts to stabilize around 3000, but still quite spread
+```
+
+## results
+
+```{r}
+summary(groupsBB, nfirst = 3000) # select moment where convergence started to improve
+```
+
+```{r}
+# parameters plots
+getNames(groupsBB)
+GlobalNonRateParameterPlots(groupsBB, setOfEffects = 3, title="gnet_density")
+GlobalNonRateParameterPlots(groupsBB, setOfEffects = c(4,5,6,7,8), title="gnet_network")
+GlobalNonRateParameterPlots(groupsBB, setOfEffects = c(9,22,24), title="gnet_relational")
+GlobalNonRateParameterPlots(groupsBB, setOfEffects = c(10,23,25), title="gnet_antisocial")
+GlobalNonRateParameterPlots(groupsBB, setOfEffects = c(11,16,17,18), title="gnet_social_nfriends")
+GlobalNonRateParameterPlots(groupsBB, setOfEffects = c(19,20,21), title="gnet_gender")
+GlobalNonRateParameterPlots(groupsBB, setOfEffects = c(12,13,14), title="gnet_gossip")
+GlobalNonRateParameterPlots(groupsBB, setOfEffects = c(15), title="gnet_antipaty")
+```
+
+```{r}
+shortBayesResults(groupsBB, nfirst = 3000)
+```
+
+```{r}
+nrow(sGtest)
+length(post.mean)
+posterior.mean <- post.mean[17:39]
+sGtest<-simpleBayesTest(groupsBB, nfirst=3000, ndigits = 3)
+sGtest<-sGtest %>% mutate(`mu/eta` = posterior.mean) %>% rename(parameter = " ", cred.to = "  cred.to", `p (> 0)` = "  p  ")
+sGtest <- sGtest %>% select(parameter, varying,`mu/eta`, cred.from,cred.to,`p (> 0)`)
+```
+
+```{r}
+# Make table for output
+ordered <- c(1,2,3,4,5,6,17,18,19,7,8,14,15,16,20,21,9,22,23,10,11,12,13)
+sGtestor<-sGtest[ordered,]
+rownames(sGtestor) <- NULL
+
+sGtestor %>% kbl(caption="Table 8: Posterior Results of Bayesian Multilevel Random Coefficients", booktabs = T) %>%  kable_styling(font_size = 12, htmltable_class = "lightable-classic",html_font = "Times New Roman", full_width = F)  %>% pack_rows(group_label = "Structural effects", 1,6) %>% pack_rows("Gender effects", 7,9) %>% pack_rows("H1: Intimidation Mechanism", 10,20) %>% 
+pack_rows("H2: Information Mechanism", 20,22) %>% 
+pack_rows("antipathy", 23,23) %>% footnote(general="Source: RECENS(2016), N = 211")%>% save_kable(file="Bayesianresults.png",bs_theme = "flatly")
+```
+
+## density plots
+
+```{r}
+# distribution plots
+AllDensityPlots(groupsBB, nfirst = 3000)
+```
+
+## MDS
+
+```{r}
+plotPostMeansMDS(groupsBB, excludeRates=F, nfirst = 3000, pmonly = 1, method = 3)
+```
+
+## global parameters
+```{r}
+GlobalRateParameterPlots(groupsBB)
+GlobalNonRateParameterPlots(groupsBB, setOfEffects = 2, title="gnet_density")
+GlobalNonRateParameterPlots(gans.e, setOfEffects = 3, title="gnet_recip")
+GlobalNonRateParameterPlots(gans.e, setOfEffects = 4:8, title="gnet_struct")
+GlobalNonRateParameterPlots(gans.e, setOfEffects = c(9,15,16), title="gnet_cov")
+GlobalNonRateParameterPlots(gans.e, setOfEffects = 10:14, title="gnet_del")
+GlobalNonRateParameterPlots(gans.e, setOfEffects = 17:21, title="gdel")
+```
+
+
+
