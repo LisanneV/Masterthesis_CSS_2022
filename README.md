@@ -1,2 +1,8 @@
 # Masterthesis_CSS_2022
 Syntax for SAOM analysis of Naked Emperor nominations of the RECENS dataset
+
+The files in the repository present the syntax used for analysis for the Master thesis in Computational Social Science:
+'The Naked Emperor - False popularity in the context of secondary school status competition'.
+
+Abstract
+Individuals are known to occasionally feign support for the status quo to avoid social repercussion, causing illusions of majority approval. Indeed, some adolescents, termed “Naked Emperors” in this study, have a high-status reputation in the group while their peers privately perceive that status as undeserved; a problem that risks the legitimization of undesired behaviour, such as bullying. An explanation for false popularity could be that these high-status adolescents are influential and maintain their reputation by intimidating others, limiting the willingness of classmates to openly share their true opinion, by fear of being victimized or receiving reputational damage. This framework is tested by Stochastic Actor Oriented Modelling (SAOM) of panel data of nine Hungarian classrooms of the RECENS dataset (2016). The study provides no convincing evidence that the proposed mechanism can explain the phenomenon. Results show that perceived anti-social behavioral characteristics strongly lead to Naked Emperor nomination, but this could also result from violation of classroom popularity norms, since pro-social classroom norms are likely to dominate in the classrooms of the sample. This study made a valuable first step towards understanding network dynamics of perceived undeserved high-status and contributes to the literature gap considering status competition and false popularity in secondary schools. 
